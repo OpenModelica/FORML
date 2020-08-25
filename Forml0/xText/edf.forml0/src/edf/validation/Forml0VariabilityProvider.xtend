@@ -21,27 +21,15 @@ import edf.forml0.Event
 import edf.forml0.EventLiteral
 import edf.forml0.EveryExpression
 import edf.forml0.Expression
-import edf.forml0.ExternalBooleanDefinition
-import edf.forml0.ExternalEventDefinition
-import edf.forml0.ExternalRealDefinition
 import edf.forml0.FirstExpression
 import edf.forml0.FollowingExpression
 import edf.forml0.FunctionCall
-import edf.forml0.GlobalBooleanDefinition
-import edf.forml0.GlobalEventDefinition
-import edf.forml0.GlobalEventOccurrence
-import edf.forml0.GlobalEventRate
-import edf.forml0.GlobalRealDefinition
 import edf.forml0.GreaterOrEqualExpression
 import edf.forml0.GreaterThanExpression
 import edf.forml0.IfExpression
 import edf.forml0.Integer
-import edf.forml0.IntegerDefinition
 import edf.forml0.IntegerDivisionExpression
 import edf.forml0.Item
-import edf.forml0.ItemizedBooleanDefinition
-import edf.forml0.ItemizedEventDefinition
-import edf.forml0.ItemizedRealDefinition
 import edf.forml0.LeavesExpression
 import edf.forml0.LessOrEqualExpression
 import edf.forml0.LessThanExpression
@@ -117,7 +105,7 @@ class Forml0VariabilityProvider {
 			PropertyEvent:				normal
 			MyClock:					normal
 			Clock:						normal
-			Reference:					if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier) normal else expr?.identifier?.variabilityFor
+		///	Reference:					if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier) normal else expr?.identifier?.variabilityFor
 			FunctionCall:				normal
 		
 			AttributeExpression:		expr?.atom?.variabilityFor
@@ -156,14 +144,13 @@ class Forml0VariabilityProvider {
 	
 	def dispatch Forml0Variability variabilityFor (MyRate expr) {
 		var definition = expr.getContainerOfType(typeof(Event))?.eventDefinition
-		switch definition {
-			GlobalEventDefinition:		normal
-			ExternalEventDefinition:	normal
-			ItemizedEventDefinition:	switch (definition.statement) {
-				GlobalEventOccurrence:	normal
-				GlobalEventRate:		constant
-			}
-		}
+		if (definition.rate) definition.rateValue.variabilityFor else normal 
+	}
+ 	
+	def dispatch Forml0Variability variabilityFor (Reference expr) {
+		var container = expr?.getContainerOfType(typeof(Item))
+		if (expr?.identifier?.name === null) normal
+		else if (container?.name == expr?.identifier?.name) normal else expr?.identifier?.variabilityFor
 	}
  	
 	def dispatch Forml0Variability variabilityFor (BuiltInFunctionCall expr) {
@@ -370,40 +357,23 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (Boolean item) {
-		switch item {
-			case item.constant: constant
-			case item.fixed: 	fixed
-			default: {
-				var definition=item.booleanDefinition
-				switch definition {
-					ExternalBooleanDefinition:	normal
-					GlobalBooleanDefinition:	definition.globalValue.expression.variabilityFor
-					ItemizedBooleanDefinition:	definition.value.expression.variabilityFor
-				}
-			}		
-		}
+		if      (item.constant) 												constant
+		else if (item.fixed) 	 												fixed
+		else if (item.booleanDefinition.global || item.booleanDefinition.value) item.booleanDefinition.globalValue.expression.variabilityFor
+		else 																	normal
 	}
 	
 	def dispatch Forml0Variability variabilityFor (Integer item) {
-		if      (item.constant) 				constant
-		else if (item.fixed) 	 				fixed
-		else if (item.integerDefinition.global) item.integerDefinition.globalValue1.expression.variabilityFor
-		else if (item.integerDefinition.value)  item.integerDefinition.globalValue2.expression.variabilityFor
-		else 									normal
+		if      (item.constant) 												constant
+		else if (item.fixed) 	 												fixed
+		else if (item.integerDefinition.global || item.integerDefinition.value) item.integerDefinition.globalValue.expression.variabilityFor
+		else 																	normal
 	}
 	
 	def dispatch Forml0Variability variabilityFor (Real item) {
-		switch item {
-			case item.constant: constant
-			case item.fixed: 	fixed
-			default: {
-				var definition=item.realDefinition
-				switch definition {
-					ExternalRealDefinition:	normal
-					GlobalRealDefinition:	definition.globalValue.expression.variabilityFor
-					ItemizedRealDefinition:	definition.value.expression.variabilityFor
-				}
-			}		
-		}
+		if      (item.constant) 										  constant
+		else if (item.fixed) 	 										  fixed
+		else if (item.realDefinition.global || item.realDefinition.value) item.realDefinition.globalValue.expression.variabilityFor
+		else 															  normal
 	}
 }	

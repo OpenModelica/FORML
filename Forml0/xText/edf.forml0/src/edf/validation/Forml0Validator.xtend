@@ -23,20 +23,12 @@ import edf.forml0.FirstExpression
 import edf.forml0.FollowingExpression
 import edf.forml0.Forml0Package
 import edf.forml0.FunctionCall
-import edf.forml0.GlobalBooleanDefinition
-import edf.forml0.GlobalEventDefinition
-import edf.forml0.GlobalIntegerDefinition
-import edf.forml0.GlobalRealDefinition
 import edf.forml0.GreaterOrEqualExpression
 import edf.forml0.GreaterThanExpression
 import edf.forml0.IfExpression
 import edf.forml0.Integer
 import edf.forml0.IntegerDivisionExpression
 import edf.forml0.IntegerExpression
-import edf.forml0.ItemizedBooleanDefinition
-import edf.forml0.ItemizedEventDefinition
-import edf.forml0.ItemizedIntegerDefinition
-import edf.forml0.ItemizedRealDefinition
 import edf.forml0.LeavesExpression
 import edf.forml0.LessOrEqualExpression
 import edf.forml0.LessThanExpression
@@ -63,14 +55,13 @@ import edf.forml0.Item
 import edf.forml0.Duration
 import edf.forml0.BuiltInFunctionCall
 import edf.forml0.AttributeExpression
-import edf.forml0.GlobalPropertyDefinition
-import edf.forml0.ItemizedPropertyDefinition
 import edf.forml0.PropertyDefinition
 import edf.forml0.Ctl
 import edf.forml0.Reference
 import edf.forml0.PropertyPfd
 import edf.forml0.PropertyState
 import edf.forml0.PropertyEvent
+import edf.forml0.EventDefinition
 
 class Forml0Validator extends AbstractForml0Validator {
 	public static val WRONG_TYPE        = "edf.forml0.WrongType"
@@ -177,33 +168,43 @@ class Forml0Validator extends AbstractForml0Validator {
 	
 	@Check
 	def verifyType (PropertyPfd expr) {
+		if (expr?.identifier?.name === null)
+			error ("Undefined Property name", Forml0Package.Literals::PROPERTY_PFD__IDENTIFIER, SELF_REFERENCE)
 		if (expr.getContainerOfType(typeof(Item))?.name == expr?.identifier)  
 			error ("Self references are not allowed", Forml0Package.Literals::PROPERTY_PFD__IDENTIFIER, SELF_REFERENCE)
 	}
 	
 	@Check
 	def verifyType (PropertyState expr) {
+		if (expr?.identifier?.name === null)
+			error ("Undefined Property name", Forml0Package.Literals::PROPERTY_STATE__IDENTIFIER, SELF_REFERENCE)
 		if (expr.getContainerOfType(typeof(Item))?.name == expr?.identifier)  
 			error ("Self references are not allowed", Forml0Package.Literals::PROPERTY_STATE__IDENTIFIER, SELF_REFERENCE)
 	}
 	
 	@Check
 	def verifyType (PropertyEvent expr) {
+		if (expr?.identifier?.name === null)
+			error ("Undefined Property name", Forml0Package.Literals::PROPERTY_EVENT__IDENTIFIER, SELF_REFERENCE)
 		if (expr.getContainerOfType(typeof(Item))?.name == expr?.identifier)  
 			error ("Self references are not allowed", Forml0Package.Literals::PROPERTY_EVENT__IDENTIFIER, SELF_REFERENCE)
 	}
 	
 	@Check
 	def verifyType (Reference expr) {
-		println ("Reference id is '" + expr?.identifier + "'")
-		println ("Container id is '" + expr?.getContainerOfType(typeof(Item))?.name + "'")
-		if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier)  
+//		println ("Reference id is '" + expr?.identifier.name + "'")
+//		println ("Container id is '" + expr?.getContainerOfType(typeof(Item))?.name + "'")
+		if (expr?.identifier?.name === null)
+			error ("Undefined name", Forml0Package.Literals::REFERENCE__IDENTIFIER, SELF_REFERENCE)
+		if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier?.name)  
 			error ("Self references are not allowed", Forml0Package.Literals::REFERENCE__IDENTIFIER, SELF_REFERENCE)
 	}
 	
 	@Check
 	def verifyType (FunctionCall expr) {
-		if (expr.getContainerOfType(typeof(Item))?.name == expr?.function)  
+		if (expr?.function?.name === null)
+			error ("Undefined function name", Forml0Package.Literals::FUNCTION_CALL__FUNCTION, SELF_REFERENCE)
+		if (expr.getContainerOfType(typeof(Item))?.name == expr?.function.name)  
 			error ("Self references are not allowed", Forml0Package.Literals::FUNCTION_CALL__FUNCTION, SELF_REFERENCE)
 		if (expr.function.type != 'Boolean'
 		&&	expr.function.type != 'Integer'
@@ -496,6 +497,7 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	def private Forml0Variability getItemVariabilityAndCheckNotNull (Item item, EReference reference) {
+		if (item                 === null) error ("Item undefined", reference, WRONG_VARIABILITY)
 		if (item?.variabilityFor === null) error ("Variability undefined", reference, WRONG_VARIABILITY)
 		return item?.variabilityFor
 	}
@@ -503,87 +505,71 @@ class Forml0Validator extends AbstractForml0Validator {
 	@Check
 	def verifyVariability (Boolean item) {
 		var variability = getItemVariabilityAndCheckNotNull (item, Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION)
- 		if (item.constant && variability != Forml0VariabilityProvider::constant) 
+ 		if (item?.constant && variability != Forml0VariabilityProvider::constant) 
  			error ("Expected a constant expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION, WRONG_VARIABILITY)
- 		else if (item.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
+ 		else if (item?.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
  			error ("Expected a fixed expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION, WRONG_VARIABILITY)
 	}
 		
 	@Check
 	def verifyExternal (Boolean item) {
- 		if (item.parameters?.size > 0) switch item.booleanDefinition {
- 			GlobalBooleanDefinition:   error ("In Form-L0, Boolean definitions with parameters other than time must be external",
- 				Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION, NOT_EXTERNAL)
- 			ItemizedBooleanDefinition: error ("In Form-L0, Boolean definitions with parameters other than time must be external",
- 				Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION, NOT_EXTERNAL)
- 		}
+ 		if (item?.parameters?.size > 0 && !item?.booleanDefinition?.external)    
+ 			error ("In Form-L0, Boolean definitions with parameters other than time must be external", Forml0Package.Literals::BOOLEAN__BOOLEAN_DEFINITION, NOT_EXTERNAL)
 	}
 		
 	@Check
 	def verifyVariability (Integer item) {
 		var variability = getItemVariabilityAndCheckNotNull (item, Forml0Package.Literals::INTEGER__INTEGER_DEFINITION)
- 		if (item.constant && variability != Forml0VariabilityProvider::constant) 
+ 		if (item?.constant && variability != Forml0VariabilityProvider::constant) 
  			error ("Expected a constant expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, WRONG_VARIABILITY)
- 		else if (item.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
+ 		else if (item?.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
  			error ("Expected a fixed expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, WRONG_VARIABILITY)
 	}
 		
 	@Check
 	def verifyExternal (Integer item) {
- 		if (item.parameters?.size > 0) switch item.integerDefinition {
- 			GlobalIntegerDefinition:   error ("In Form-L0, Integer definitions with parameters other than time must be external",
- 				Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, NOT_EXTERNAL)
- 			ItemizedIntegerDefinition: error ("In Form-L0, Integer definitions with parameters other than time must be external",
- 				Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, NOT_EXTERNAL)
- 		}
+ 		if (item?.parameters?.size > 0 && !item?.integerDefinition?.external)    
+ 			error ("In Form-L0, Integer definitions with parameters other than time must be external", Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, NOT_EXTERNAL)
 	}
 		
 	@Check
 	def verifyVariability (Real item) {
 		var variability = getItemVariabilityAndCheckNotNull (item, Forml0Package.Literals::REAL__REAL_DEFINITION)
- 		if (item.constant && variability != Forml0VariabilityProvider::constant) 
+ 		if (item?.constant && variability != Forml0VariabilityProvider::constant) 
  			error ("Expected a constant expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::REAL__REAL_DEFINITION, WRONG_VARIABILITY)
- 		else if (item.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
+ 		else if (item?.fixed && variability != Forml0VariabilityProvider::constant && variability != Forml0VariabilityProvider::fixed)
  			error ("Expected a fixed expression, but got a " + variability.toString + " expression ",
  				  Forml0Package.Literals::REAL__REAL_DEFINITION, WRONG_VARIABILITY)
 	}
 	
 	@Check
 	def verifyExternal (Real item) {
- 		if (item.parameters?.size > 0) switch item.realDefinition {
- 			GlobalRealDefinition:   error ("In Form-L0, Real definitions with parameters other than time must be external",
- 				Forml0Package.Literals::REAL__REAL_DEFINITION, NOT_EXTERNAL)
- 			ItemizedRealDefinition: error ("In Form-L0, Real definitions with parameters other than time must be external",
- 				Forml0Package.Literals::REAL__REAL_DEFINITION, NOT_EXTERNAL)
- 		}
+ 		if (item?.parameters?.size > 0 && !item.realDefinition?.external)    
+ 			error ("In Form-L0, Real definitions with parameters other than time must be external", Forml0Package.Literals::REAL__REAL_DEFINITION, NOT_EXTERNAL)
 	}
 		
 	@Check
 	def verifyExternal (Event item) {
- 		if (item.parameters?.size > 0) switch item.eventDefinition {
- 			GlobalEventDefinition:   error ("In Form-L0, Event definitions with parameters other than time must be external",
- 				Forml0Package.Literals::EVENT__EVENT_DEFINITION, NOT_EXTERNAL)
- 			ItemizedEventDefinition: error ("In Form-L0, Event definitions with parameters other than time must be external",
- 				Forml0Package.Literals::EVENT__EVENT_DEFINITION, NOT_EXTERNAL)
- 		}
+ 		if (item?.parameters?.size > 0 && !item?.eventDefinition?.external)    
+ 			error ("In Form-L0, Event definitions with parameters other than time must be external", Forml0Package.Literals::EVENT__EVENT_DEFINITION, NOT_EXTERNAL)
+	}
+		
+	@Check
+	def verifyExternal (EventDefinition definition) {
+		var variability = definition?.rateValue?.variabilityFor
+ 		if (definition?.rate && variability != Forml0VariabilityProvider::constant)   
+ 			error ("Set event rates must be constant, this one is " + variability, Forml0Package.Literals::EVENT__EVENT_DEFINITION, NOT_EXTERNAL)
 	}
 		
 	@Check
 	def verifyConstraintType (PropertyDefinition p) {
-		switch p {
-			GlobalPropertyDefinition: 
-				if (p.achieve && p.constraint.expression.constraintCategoryFor == Forml0ConstraintCategoryProvider::notELSConstraint)
-					error ("The constraint is not suitable for an 'achieve' property", Forml0Package.Literals::GLOBAL_PROPERTY_DEFINITION__CONSTRAINT, WRONG_CONSTRAINT)
-			ItemizedPropertyDefinition: 
-				if (p.achieve && p.constraint.expression.constraintCategoryFor == Forml0ConstraintCategoryProvider::notELSConstraint)
-					error ("The constraint is not suitable for an 'achieve' property", Forml0Package.Literals::ITEMIZED_PROPERTY_DEFINITION__CONSTRAINT, WRONG_CONSTRAINT)
-		}
-	
+		if (p?.achieve && p.constraint.expression.constraintCategoryFor == Forml0ConstraintCategoryProvider::notELSConstraint)
+			error ("The constraint is not suitable for an 'achieve' Property", Forml0Package.Literals::PROPERTY_DEFINITION__CONSTRAINT, WRONG_CONSTRAINT)
 	}
 	
 	@Check
@@ -594,51 +580,26 @@ class Forml0Validator extends AbstractForml0Validator {
 			d.value.expression, Forml0TypeProvider::integerType)
 		var item = d.getContainerOfType(typeof(Item))
 		if (d.ticks && item === null) 
-			error ("Ticks used without a containing item", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+			error ("Use of ticks without a containing item", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		if (item.^boolean !== null) {
-			var definition = (item.^boolean as Boolean).booleanDefinition
-			switch definition {
-				ItemizedBooleanDefinition: if (definition.clock === null) 
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-				default:
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-			}
+			if (!(item.^boolean as Boolean).booleanDefinition.clock) 
+				error ("Use of ticks when containing Boolean does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		}	
 		if (item.integer !== null) {
-			var definition = (item.integer as Integer).integerDefinition
-			switch definition {
-				ItemizedIntegerDefinition: if (definition.clock === null) 
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-				default:
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-			}
+			if (!(item.integer as Integer).integerDefinition.clock) 
+				error ("Use of ticks when containing Integer does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		}
 		if (item.real !== null) {
-			var definition = (item.real as Real).realDefinition
-			switch definition {
-				ItemizedRealDefinition: if (definition.clock === null) 
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-				default:
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-			}
+			if (!(item.real as Real).realDefinition.clock) 
+				error ("Use of ticks when containing Real does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		}
 		if (item.event !== null) {
-			var definition = (item.event as Event).eventDefinition
-			switch definition {
-				ItemizedEventDefinition: if (definition.clock === null) 
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-				default:
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-			}
+			if (!(item.event as Event).eventDefinition.clock) 
+				error ("Use of ticks when containing Event does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		}
 		if (item.property !== null) {
-			var definition = (item.property as Property).propertyDefinition
-			switch definition {
-				ItemizedPropertyDefinition: if (definition.clock === null) 
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-				default:
-					error ("Containing item does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-			}
+			if (!(item.^property as Property).propertyDefinition.clock) 
+				error ("Use of ticks when containing Property does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
 		}
 	}
 	

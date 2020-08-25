@@ -6,8 +6,6 @@ package edf.validation
 import edf.forml0.AdditionExpression
 import edf.forml0.DivisionExpression
 import edf.forml0.Expression
-import edf.forml0.GlobalIntegerDefinition
-import edf.forml0.GlobalRealDefinition
 import edf.forml0.Integer
 import edf.forml0.IntegerDivisionExpression
 import edf.forml0.Item
@@ -65,22 +63,16 @@ class Forml0ValueProvider {
 	def dispatch double valueFor (Item item) {
 		switch item {
 			Integer: {
-				if (item.constant) { 
-					var definition = item.integerDefinition
-					switch definition {
-						GlobalIntegerDefinition:	definition.globalValue.expression.valueFor
-						default:	1.0
-					}
-				}	else 1.0
+				var definition = item.integerDefinition
+				if (item.constant && (definition.global || definition.value))  
+					definition.globalValue.expression.valueFor
+					else 1.0
 			}
 			Real: {
-				if (item.constant) { 
-					var definition = item.realDefinition
-					switch definition {
-						GlobalRealDefinition:	definition.globalValue.expression.valueFor
-						default:	1.0
-					}
-				}	else 1.0
+				var definition = item.realDefinition
+				if (item.constant && (definition.global || definition.value)) 
+					definition.globalValue.expression.valueFor
+					else 1.0
 			}	
 			default:	1.0
 		}

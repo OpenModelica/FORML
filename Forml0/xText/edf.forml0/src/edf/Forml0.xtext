@@ -76,12 +76,11 @@ Parameter:
 ;
 
 BooleanDefinition:
-	{GlobalBooleanDefinition}   'is' globalValue=BooleanExpression 
-|	{ExternalBooleanDefinition} 'is' 'external'
-|	{ItemizedBooleanDefinition} 
+	global?='is' (globalValue=BooleanExpression | external?='external')
+|	{BooleanDefinition} 
 		'begin' 
-		('clock' 'is' clock=EventExpression ';')? 
-		('value' 'is' value=BooleanExpression ';' | statements+=BooleanStatement+)? 
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
+		(value?='value' 'is' globalValue=BooleanExpression ';' | statements+=BooleanStatement+)? 
 		'end'
 ;
 
@@ -90,11 +89,12 @@ BooleanStatement: {BooleanStatement}
 ;
 
 IntegerDefinition:
-	global?='is' (globalValue1=IntegerExpression | external?='external')
-|	{IntegerDefinition} 'begin' 
-	(clock?='clock' 'is' clockValue=EventExpression ';')? 
-	(value?='value' 'is' globalValue2=IntegerExpression ';' | statements+=IntegerStatement+)? 
-	'end'
+	global?='is' (globalValue=IntegerExpression | external?='external')
+|	{IntegerDefinition} 
+		'begin' 
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
+		(value?='value' 'is' globalValue=IntegerExpression ';' | statements+=IntegerStatement+)? 
+		'end'
 ;
 
 IntegerStatement: {IntegerStatement} 
@@ -102,12 +102,11 @@ IntegerStatement: {IntegerStatement}
 ;
 
 RealDefinition:
-	{GlobalRealDefinition}   'is' globalValue=NumericExpression 
-|	{ExternalRealDefinition} 'is' 'external'
-|	{ItemizedRealDefinition} 
+	global?='is' (globalValue=NumericExpression | external?='external')
+|	{RealDefinition} 
 		'begin' 
-		('clock' 'is' clock=EventExpression ';')? 
-		('value' 'is' value=NumericExpression ';' | statements+=NumericStatement+)? 
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
+		(value?='value' 'is' globalValue=NumericExpression ';' | statements+=NumericStatement+)? 
 		'end'
 ;
 
@@ -121,18 +120,16 @@ AssignableVariableAttribute:
 ;
 
 EventDefinition:
-	{GlobalEventDefinition} 'is' globalOccurrence=EventExpression
-|	{ExternalEventDefinition} 'is' 'external'
-|	{ItemizedEventDefinition} 
+	global?='is' (globalValue=EventExpression | external?='external')
+|	{EventDefinition} 
 		'begin' 
-		('clock' 'is' clock=EventExpression ';')? 
-		(statement=GlobalEventStatement | statements+=EventStatement+)? 
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
+		(	occurrence?='occurrence' 'is' globalValue=EventExpression ';' 
+		|	rate?='rate'       		 'is' rateValue=NumericExpression ';'
+		/// Verify rateValue is constant
+		|	statements+=EventStatement+
+		)? 
 		'end'
-;
-
-GlobalEventStatement:
-	{GlobalEventOccurrence} 'occurrence' 'is' globalOccurrence=EventExpression ';'
-|	{GlobalEventRate}       'rate'       'is' rate=            NumericLiteral  ';'
 ;
 
 EventStatement:
@@ -149,11 +146,10 @@ Property returns Item:
 ;
 
 PropertyDefinition:
-	{GlobalPropertyDefinition}	 'is' (timeLocator=TimeLocator)? ConstraintType constraint=BooleanExpression
-|	{ExternalPropertyDefinition} 'is' 'external'
-|	{ItemizedPropertyDefinition}	
+	'is' (timeLocator=TimeLocator)? ConstraintType constraint=BooleanExpression
+|	{PropertyDefinition}	
 		'begin'
-		('clock' 'is' clock=EventExpression ';')? 
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
 		(timeLocator=TimeLocator)? ConstraintType constraint=BooleanExpression
 		'end'
 ;
