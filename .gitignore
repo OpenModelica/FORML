@@ -8,4 +8,5 @@
 src-gen/
 xtend-gen/
 bin/
-
+*.java
+*.xml
