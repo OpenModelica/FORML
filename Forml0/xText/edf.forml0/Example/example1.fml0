@@ -1,0 +1,20 @@
+Integer i1 begin
+	value is 5;
+end;
+
+Integer i2 is iii;
+Integer i3 is external;
+Integer i4 begin
+	clock is t0;
+end;
+
+Event e1 is t0;
+
+Boolean b1 is true;
+
+Real r1 is 1.5;
+Real r2 is 5;
+
+Integer i5 is 1.6e+6; 
+
+

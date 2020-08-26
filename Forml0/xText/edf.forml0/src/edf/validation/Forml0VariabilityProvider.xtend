@@ -105,7 +105,7 @@ class Forml0VariabilityProvider {
 			PropertyEvent:				normal
 			MyClock:					normal
 			Clock:						normal
-		///	Reference:					if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier) normal else expr?.identifier?.variabilityFor
+		///	Reference:					
 			FunctionCall:				normal
 		
 			AttributeExpression:		expr?.atom?.variabilityFor
@@ -191,15 +191,20 @@ class Forml0VariabilityProvider {
 		var rightVar = expr.right.variabilityFor
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  					  constant   else
-		if (leftVar  == constant && rightVar == constant) 					  constant   else
-		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  										   constant   else
+		if (leftVar  == constant && rightVar == constant) 										   constant   else
+		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
+		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
 		normal
 	}	
 	
@@ -208,15 +213,20 @@ class Forml0VariabilityProvider {
 		var rightVar = expr.right.variabilityFor
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  					  constant   else
-		if (leftVar  == constant && rightVar == constant) 					  constant   else
-		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  										   normal     else
+		if (leftVar  == constant && rightVar == constant) 										   constant   else
+		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
+		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
 		normal
 	}	
 	
@@ -225,15 +235,20 @@ class Forml0VariabilityProvider {
 		var rightVar = expr.right.variabilityFor
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  					  constant   else
-		if (leftVar  == constant && rightVar == constant) 					  constant   else
-		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  										   normal     else
+		if (leftVar  == constant && rightVar == constant) 										   constant   else
+		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
+		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
 		normal
 	}	
 	
@@ -258,8 +273,8 @@ class Forml0VariabilityProvider {
 		if (leftVar  == constant && rightVar == fixed   ) 					 								 fixed      else
 		if (leftVar  == increasing && (rightVar == constant || rightVar == fixed || rightVar == decreasing)) increasing else
 		if (leftVar  == decreasing && (rightVar == constant || rightVar == fixed || rightVar == increasing)) decreasing else
-		if ((leftVar == constant || leftVar == fixed) && rightVar == increasing)                             decreasing else
-		if ((leftVar == constant || leftVar == fixed) && rightVar == decreasing) 							 increasing else
+		if (rightVar == increasing && (leftVar  == constant || leftVar  == fixed || leftVar  == decreasing)) decreasing else
+		if (rightVar == decreasing && (leftVar  == constant || leftVar  == fixed || leftVar  == increasing)) increasing else
 		normal
 	}	
 	

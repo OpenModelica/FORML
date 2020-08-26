@@ -23,21 +23,29 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
 //=============================================================================
 //
 //	Value of constant numeric expressions and constant numeric items
-// 	Returns 1.0 if expression or item is not constant or not numeric 
+// 	Returns 'unknown' if expression or item is not constant or not numeric 
 //	(not 0.0, to avoid issues with divisions)
 //
 //=============================================================================
 class Forml0ValueProvider {
+	public static val unknown = 1.836168313179e17
+	
 	def dispatch double valueFor (Expression expr) {
 		switch (expr) {
-			Reference:					if (expr.getContainerOfType(typeof(Item))?.name == expr?.identifier) 1.0 else expr.identifier.valueFor
-			UnaryMinusExpression:		- expr.right.valueFor
-			ProductExpression:			expr.left.valueFor * expr.right.valueFor
-			DivisionExpression:			expr.left.valueFor / (expr.right.valueFor != 0.0 ? expr.right.valueFor : 1.0)
-			IntegerDivisionExpression:	((expr.left.valueFor / (expr.right.valueFor != 0.0 ? expr.right.valueFor : 1.0)) as long) as double
-			AdditionExpression:			expr.left.valueFor + expr.right.valueFor
-			SubstractionExpression:		expr.left.valueFor - expr.right.valueFor
-			default:					1.0
+			AttributeExpression:		expr.atom.valueFor
+			UnaryMinusExpression:		if (expr.right.valueFor == unknown) 																unknown									
+										else 																								- expr.right.valueFor
+			ProductExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+										else 																								expr.left.valueFor * expr.right.valueFor
+			DivisionExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown || expr.right.valueFor == 0.0)	unknown 
+										else 																								expr.left.valueFor / expr.right.valueFor
+			IntegerDivisionExpression:	if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown || expr.right.valueFor == 0.0)	unknown 
+										else 																								((expr.left.valueFor / expr.right.valueFor) as long) as double
+			AdditionExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+										else 																								expr.left.valueFor + expr.right.valueFor
+			SubstractionExpression:		if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+										else 																								expr.left.valueFor - expr.right.valueFor
+			default:					unknown
 		}
 	}
 	
@@ -45,36 +53,37 @@ class Forml0ValueProvider {
 		(expr.value.integerValue + Double.parseDouble (expr.value.decimalValue)) * Double.parseDouble ("1." + expr.value.exponent)
 	}
 	
+	def dispatch double valueFor (Reference expr) {
+		var container = expr?.getContainerOfType(typeof(Item))
+		if      (expr?.identifier?.name === null) 		 unknown
+		else if (container === null) 					 unknown
+		else if (container.name == expr.identifier.name) unknown 
+		else    										 expr.identifier.valueFor
+	}
+ 	
 	def dispatch double valueFor (PowerExpression expr) {
 		var double value = 1.0
 		var int i
+		if (expr.left.valueFor == unknown) return unknown
 		for (i = 1; i <= expr.right; i++) value = value*expr.left.valueFor
-		expr.negative && expr.left.valueFor != 0.0 ? 1.0/value : value
-	}	
-	
-	def dispatch double valueFor (AttributeExpression expr) {
-		val atom = expr.atom
-		switch atom {
-			EventLiteral:	1.0
-			default:		atom.valueFor
-		}
+		expr.negative && value != 0.0 ? 1.0/value : value
 	}	
 	
 	def dispatch double valueFor (Item item) {
 		switch item {
 			Integer: {
 				var definition = item.integerDefinition
-				if (item.constant && (definition.global || definition.value))  
+				if (item.constant && (definition.global || definition.value) && ! definition.external) 
 					definition.globalValue.expression.valueFor
-					else 1.0
+					else unknown
 			}
 			Real: {
 				var definition = item.realDefinition
-				if (item.constant && (definition.global || definition.value)) 
+				if (item.constant && (definition.global || definition.value) && ! definition.external) 
 					definition.globalValue.expression.valueFor
-					else 1.0
+					else unknown
 			}	
-			default:	1.0
+			default:	unknown
 		}
 	}
 }	

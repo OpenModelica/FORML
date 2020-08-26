@@ -232,7 +232,7 @@ BasicCtl returns CtlExpression:
 ;
 
 Duration:
-	value=NumericExpression (ticks?='ticks')?
+	value=NumericExpression ('*' ticks?='ticks')?
 	/// Verify value > 0 if value is constant
 	/// Verify value is an integer if ticks is present
 	/// Verify containing item has a clock if ticks is present

@@ -1,0 +1,23 @@
+Integer a is 5;
+Integer i1 begin
+	value is 5;
+end;
+
+Real r1 begin
+	value is 1.5;
+end;
+
+Boolean b1 begin
+	value is false;
+end;
+
+Event e is t0;
+Event e2 is e;
+Event e4 begin
+	occurrence is t0;
+end;
+
+Integer i2 is i1;
+Integer i4 is a;
+
+

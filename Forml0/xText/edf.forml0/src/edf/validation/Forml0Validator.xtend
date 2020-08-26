@@ -192,8 +192,6 @@ class Forml0Validator extends AbstractForml0Validator {
 	
 	@Check
 	def verifyType (Reference expr) {
-//		println ("Reference id is '" + expr?.identifier.name + "'")
-//		println ("Container id is '" + expr?.getContainerOfType(typeof(Item))?.name + "'")
 		if (expr?.identifier?.name === null)
 			error ("Undefined name", Forml0Package.Literals::REFERENCE__IDENTIFIER, SELF_REFERENCE)
 		if (expr?.getContainerOfType(typeof(Item))?.name == expr?.identifier?.name)  
