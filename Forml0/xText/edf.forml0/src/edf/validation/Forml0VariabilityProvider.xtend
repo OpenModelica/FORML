@@ -41,6 +41,7 @@ import edf.forml0.NumericLiteral
 import edf.forml0.OrExpression
 import edf.forml0.PowerExpression
 import edf.forml0.ProductExpression
+import edf.forml0.Property
 import edf.forml0.PropertyEvent
 import edf.forml0.PropertyPfd
 import edf.forml0.PropertyState
@@ -370,6 +371,14 @@ class Forml0VariabilityProvider {
 		) fixed    else
 		normal
 	}	
+	
+	def dispatch Forml0Variability variabilityFor (Item item) {
+		switch item {
+			Event:		normal
+			Property:	normal
+			Ctl:		normal
+		}
+	}
 	
 	def dispatch Forml0Variability variabilityFor (Boolean item) {
 		if      (item.constant) 												constant
