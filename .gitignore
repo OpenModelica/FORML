@@ -10,3 +10,4 @@ xtend-gen/
 bin/
 *.java
 *.xml
+*.jar *_trace *.xtendbin *.ecore *.genmodel
