@@ -58,6 +58,10 @@ import edf.forml0.BuiltInFunctionCall
 import edf.forml0.AttributeExpression
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import edf.forml0.Second
+import edf.forml0.Tick
+import edf.forml0.ClockTime
+import edf.forml0.InPClockTime
 
 //=============================================================================
 //
@@ -90,8 +94,12 @@ class Forml0VariabilityProvider {
 	def dispatch Forml0Variability variabilityFor (Expression expr) {
 		switch (expr) {
 			NumericLiteral:				constant
+			Second:						constant
 			Time:						increasing
 			inPTime:					increasing
+			Tick:						constant
+			ClockTime:					increasing
+			InPClockTime:				increasing
 		///	MyRate:
 			PropertyPfd:				normal
 		///	BuiltInFunctionCall:
@@ -156,15 +164,17 @@ class Forml0VariabilityProvider {
  	
 	def dispatch Forml0Variability variabilityFor (BuiltInFunctionCall expr) {
 		 switch expr.function {
-		 	case 'count': 		increasing
-		 	case 'duration':    increasing
-		 	case 'inPCount': 	increasing
-		 	case 'inPuration':  increasing
-		 	case 'inPMax':		increasing
-		 	case 'inPMin':		decreasing
-		 	case 'inTMax':		increasing
-		 	case 'inTMin':		decreasing
-		 	case 'probability': normal
+		 	case 'count': 			increasing
+		 	case 'duration':    	increasing
+		 	case 'clockDuration':   increasing
+		 	case 'inPCount': 		increasing
+		 	case 'inPDuration':  	increasing
+		 	case 'inPClockDuration':increasing
+		 	case 'inPMax':			increasing
+		 	case 'inPMin':			decreasing
+		 	case 'inTMax':			increasing
+		 	case 'inTMin':			decreasing
+		 	case 'probability': 	normal
 		 }
 	}
 	

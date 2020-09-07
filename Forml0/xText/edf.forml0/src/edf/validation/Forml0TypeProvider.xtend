@@ -57,6 +57,10 @@ import edf.forml0.inPTime
 import static extension org.eclipse.xtext.EcoreUtil2.*
 import edf.forml0.BuiltInFunctionCall
 import edf.forml0.AttributeExpression
+import edf.forml0.Second
+import edf.forml0.Tick
+import edf.forml0.ClockTime
+import edf.forml0.InPClockTime
 
 //=============================================================================
 //
@@ -84,8 +88,12 @@ class Forml0TypeProvider {
 	def dispatch Forml0Type typeFor (Expression expr) {
 		switch (expr) {
 		///	NumericLiteral
+			Second:						integerType
 			Time:						numericType
 			inPTime:					numericType
+			Tick:						integerType
+			ClockTime:					integerType
+			InPClockTime:				integerType
 			MyRate:						numericType
 			PropertyPfd:				numericType
 		///	BuiltInFunctionCall:		
@@ -165,15 +173,17 @@ class Forml0TypeProvider {
 	
 	def dispatch Forml0Type typeFor (BuiltInFunctionCall expr) {
 		 switch expr?.function {
-		 	case 'count': 		integerType
-		 	case 'duration':    numericType
-		 	case 'inPCount': 	integerType
-		 	case 'inPuration':  numericType
-		 	case 'inPMax':		expr.argument?.typeFor
-		 	case 'inPMin':		expr.argument?.typeFor
-		 	case 'inTMax':		expr.argument?.typeFor
-		 	case 'inTMin':		expr.argument?.typeFor
-		 	case 'probability': numericType
+		 	case 'count': 			integerType
+		 	case 'duration':    	numericType
+		 	case 'clockDuration':	integerType
+		 	case 'inPCount': 		integerType
+		 	case 'inPuration':  	numericType
+		 	case 'inPlockDuration':	integerType
+		 	case 'inPMax':			expr.argument?.typeFor
+		 	case 'inPMin':			expr.argument?.typeFor
+		 	case 'inTMax':			expr.argument?.typeFor
+		 	case 'inTMin':			expr.argument?.typeFor
+		 	case 'probability': 	numericType
 		 }
 	}
 	
@@ -190,7 +200,7 @@ class Forml0TypeProvider {
 		 switch expr.left.typeFor {
 		 	case eventType: 	eventType
 		 	case integerType:	expr.right.typeFor
-		 	case numericType:	numericType
+		 	case numericType:	if (expr.right.typeFor == eventType) eventType else numericType
 		 }
 	}
 	

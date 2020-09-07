@@ -15,6 +15,6 @@ Boolean b1 is true;
 Real r1 is 1.5;
 Real r2 is 5;
 
-Integer i5 is 1.6e+6; 
+Integer i5 is e1; 
 
 

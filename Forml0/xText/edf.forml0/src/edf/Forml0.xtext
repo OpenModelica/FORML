@@ -125,16 +125,16 @@ EventDefinition:
 		'begin' 
 		(clock?='clock' 'is' clockValue=EventExpression ';')? 
 		(	occurrence?='occurrence' 'is' globalValue=EventExpression ';' 
-		|	rate?='rate'       		 'is' rateValue=NumericExpression ';'
-		/// Verify rateValue is constant
+		|	rate?='rate'       		 'is' rateValue=Rate ';'
+		///// Verify rateValue is constant
 		|	statements+=EventStatement+
 		)? 
 		'end'
 ;
 
 EventStatement:
-	ctl=CtlExpression   'define' ('occurrence' 'is' occurrence=EventExpression | 'rate' 'is' rate=NumericLiteral)';' 
-|	dtl=DtlExpression	('define' 'occurrence' 'is' occurrence=EventExpression | 'signal' 'occurrence')                              ';'
+	ctl=CtlExpression  'define' (occurrence?='occurrence' 'is' value=EventExpression | rate?='rate' 'is' rateValue=Rate) ';' 
+|	dtl=DtlExpression ('define' (occurrence?='occurrence' 'is' value=EventExpression | rate?='rate' 'is' rateValue=Rate) | signal?='signal' 'occurrence') ';'                             ';'
 ;
 
 Property returns Item:
@@ -150,7 +150,7 @@ PropertyDefinition:
 |	{PropertyDefinition}	
 		'begin'
 		(clock?='clock' 'is' clockValue=EventExpression ';')? 
-		(timeLocator=TimeLocator)? ConstraintType constraint=BooleanExpression
+		(timeLocator=TimeLocator)? ConstraintType constraint=BooleanExpression ';'
 		'end'
 ;
 
@@ -167,10 +167,20 @@ fragment ConstraintType *:
 ;
 
 Ctl returns Item: 
-	{Ctl} type='Ctl' name=ID 'is' value=CtlExpression ';'
+	{Ctl} type='Ctl' name=ID ctlDefinition=CtlDefinition ';'
 	/// Verify name is unique
 ;
-	
+
+
+CtlDefinition:
+	'is' ctl=CtlExpression
+|	{CtlDefinition}	
+		'begin'
+		(clock?='clock' 'is' clockValue=EventExpression ';')? 
+		ctl=CtlExpression ';'
+		'end'
+;
+
 TimeLocator:
 	DtlExpression 
 |	CtlExpression
@@ -220,22 +230,15 @@ BasicCtl returns CtlExpression:
 	{Always}  'always'
 |	{During}  'during' (condition=Expression)
 	/// Verify expression is a Boolean or a Ctl
-|	{From}    'from'   bop=EventExpression (('until' | 'before') eop=EventExpression | ('for' | 'within') duration=Duration)?
-|	{After}   'after'  bop=EventExpression (('until' | 'before') eop=EventExpression | ('for' | 'within') duration=Duration)?  
+|	{From}    'from'   bop=EventExpression (('until' | before?='before') eop=EventExpression | ('for' | within?='within') duration=Duration)?
+|	{After}   'after'  bop=EventExpression (('until' | before?='before') eop=EventExpression | ('for' | within?='within') duration=Duration)?  
 |	{Before}  'before' eop=EventExpression
 |	{Until}   'until'  eop=EventExpression  
 |	{For}     'for'    duration=Duration 
 |	{Within}  'within' duration=Duration 
 
-|	{FromEveryFor}     'from'  'every' duration1=Duration ('for' | 'within') duration2=Duration 
-|	{AfterEveryFor}    'after' 'every' duration1=Duration ('for' | 'within') duration2=Duration 
-;
-
-Duration:
-	value=NumericExpression ('*' ticks?='ticks')?
-	/// Verify value > 0 if value is constant
-	/// Verify value is an integer if ticks is present
-	/// Verify containing item has a clock if ticks is present
+|	{FromEvery}     'from'  'every' duration1=Duration ('for' | within?='within') duration2=Duration 
+|	{AfterEvery}    'after' 'every' duration1=Duration ('for' | within?='within') duration2=Duration 
 ;
 
 Domain: 
@@ -251,6 +254,20 @@ ValueOrInterval:
 Interval:
 	{Interval} (bb?='[' | ']') (lb=NumericExpression)? ',' (ub=NumericExpression)? ('[' | eb?=']')
 |	{IntegerInterval} (negativeLb?='-' intLb=INT)? '..' (negativeUb?='-' intUb=INT)?;
+
+Duration:
+	expression=Expression
+	/// Verify type is numeric
+	/// Verify quantity is time or tick
+	/// Verify, if tick, that type is integer
+	/// Verify, if tick, that item being defined has a clock
+;
+
+Rate:
+	expression=Expression
+	// Verify type is numeric
+	// Verify quantity is 1/time
+;
 
 BooleanExpression:
 	expression=IfExpression
@@ -282,17 +299,17 @@ Expression:
  	IfExpression  
 	(	{ChangesExpression.expression=current} 'changes'
 	/// Verify expression is a Boolean or a numeric
-	/// Result is an event
+	/// Type is event
 	|	{BecomesExpression.expression=current} 'becomes' target=Domain 
 	/// Verify expression is a Boolean or a numeric
-	/// Result is an event
+	/// Type is event
 	|	{LeavesExpression .expression=current} 'leaves'  origin=Domain ('becomes' target=Domain)?
 	/// Verify expression is a Boolean or a numeric
-	/// Result is an event
+	/// Type is event
 	)?
 |	{EveryExpression} 'at' 'every' duration=Duration
 	// AT added to overcome parsing problems
-	/// Result is an event
+	/// Type is event
 ;
 
 IfExpression returns Expression:
@@ -300,20 +317,22 @@ IfExpression returns Expression:
 |	{IfExpression} 'if' condition=BooleanExpression 'then' then=XorExpression 'else' else=IfExpression
 	// The else part is not optional, since otherwise there would be no value for the expression
 	/// Verify then and else are both Boolean, both events, or both numeric
-	/// Result is an integer if then and else are integers
-	/// Result is a real if then and else are numeric and one is a real
-	/// Result is of the same type as then if it is a Boolean or an event
+	// Verify, if both are numeric, that they are of the same quantity
+	/// Type is integer if both then and else are 
+	/// Type is real if both then and else are numeric and one is real
+	/// Type is then's type if it is Boolean or event
 	/// Variability
 	///	- If all three are constant, then constant
 	///	- If condition if fixed, and both branches are constant or fixed, then fixed
 	///	- Else normal
+	// Quantity is then's quantity
 ;
 
 XorExpression returns Expression:
 	OrExpression (
 		{XorExpression.left=current} 'xor' right=OrExpression
 		/// Verify both left and right are Booleans, or both are events
-		/// Result is of the same type as left
+		/// Type is left's type
 		/// Variability
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
@@ -325,7 +344,7 @@ OrExpression returns Expression:
 	AndExpression (
 		{OrExpression.left=current} 'or' right=AndExpression
 		/// Verify both left and right are Booleans, or both are events
-		/// Result is of the same type as left
+		/// Type is left's type
 		/// Variability
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
@@ -337,14 +356,14 @@ AndExpression returns Expression:
 	EquationExpression (
 		{AndExpression.left=current} 'and' right=EquationExpression
 		/// Verify both are Booleans
-		/// Result is a Boolean
+		/// Type is Boolean
 		/// Variability
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
 		///	- Else normal
 	|	{WhileExpression.left=current} 'while' right=EquationExpression
 		/// Verify left is an event and right is an event or a Boolean
-		/// Result is an event
+		/// Type is event
 	)*
 ;
 
@@ -354,12 +373,11 @@ EquationExpression returns Expression:
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
 		///	- Else normal
+		/// Type for all is Boolean
+		/// Verify for all that both left and right are Booleans, or that both are numeric
+		/// Verify for all, if numeric, that left and right are of the same quantity
 		{EqualityExpression    .left=current} '='  right=OrderingExpression
-		/// Verify both left and right are Booleans, or both are numeric
-		/// Result is a Boolean
 	|	{DifferenceExpression  .left=current} '<>' right=OrderingExpression
-		/// Verify both left and right are Booleans, or both are numeric
-		/// Result is a Boolean
 	)?
 ;
 
@@ -369,54 +387,51 @@ OrderingExpression returns Expression:
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
 		///	- Else normal
+		/// Type for all is Boolean
+		// Verify for all that both left and right are numeric and of the same quantity
 		{LessThanExpression    .left=current} '<'  right=MinusExpression
-		/// Verify both left and right are numeric
-		/// Result is a Boolean
 	|	{LessOrEqualExpression   .left=current} '<=' right=MinusExpression
-		/// Verify both left and right are numeric
-		/// Result is a Boolean
 	|	{GreaterThanExpression .left=current} '>'  right=MinusExpression
-		/// Verify both left and right are numeric
-		/// Result is a Boolean
 	|	{GreaterOrEqualExpression.left=current} '>=' right=MinusExpression
-		/// Verify both left and right are numeric
-		/// Result is a Boolean
 	)?
 ;
 
 MinusExpression returns Expression:
 	AdditionExpression (
 		{SubstractionExpression.left=current} '-' right=AdditionExpression
-		/// Verify both left and right are numeric
-		/// Result is an integer if left and right are integers, else it is a real
+		// Verify both left and right are numeric and of the same quantity
+		/// Type is integer if left and right are integers, else type is real
 		/// Variability
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
 		///	- If left is increasing and right is constant, fixed or decreasing, then increasing
 		///	- If left is decreasing and right is constant, fixed or increasing, then increasing
 		///	- Else normal
+		/// Quantity is left's quantity
 	|	{WithoutExpression.left=current} 'without' right=AdditionExpression
 		/// Verify both left and right are events
-		/// Result is an event
+		/// Type is event
 	|	{FollowingExpression.left=current} 'following' right=AdditionExpression
 		/// Verify both left and right are events
-		/// Result is an event
+		/// Type is event
 	)?
 ;
 
 AdditionExpression returns Expression:
 	DivisionExpression (
 		{AdditionExpression.left=current} '+' right=DivisionExpression
-		/// Verify left is numeric or an event, and right is numeric
-		/// Result is an integer if left and right are integers
-		/// Result is a real if left and right are numeric, and one is a real 
-		/// Result is an event if left is an event and right is numeric (a delay)
-		// Variability
+		/// Verify both are numeric, or one is an event and the other is a duration
+		/// Verify, if both are numeric, that they are of the same quantity
+		/// Type is integer if left and right are integers
+		/// Type is real if left and right are numeric, and one is a real 
+		/// Type is event if one is an event and the other is numeric
+		/// Variability
 		///	- If both are constant, then constant
 		///	- If both are fixed, or one is fixed and the other constant, then fixed
 		///	- If one is increasing and the other constant, fixed or increasing, then increasing
 		///	- If one is decreasing and the other constant, fixed or decreasing, then decreasing
 		///	- Else normal
+		/// Quantity is left's quantity if left and right are numeric, none if one is an event
 	)*
 ;
 
@@ -427,11 +442,13 @@ DivisionExpression returns Expression:
 		/// Verify, if right is constant, that it is not zero
 		/// Result is a real
 		/// Variability: same rules as for ProductExpression
+		/// Quantity is left's quantity - right's quantity
 	|	{IntegerDivisionExpression.left=current} '\\' right=ProductExpression
 		/// Verify both left and right are numeric
-		// Verify, if right is constant, that it is not zero
+		/// Verify, if right is constant, that it is not zero
 		/// Result is an integer
 		/// Variability: same rules as for ProductExpression
+		/// Quantity is left's quantity - right's quantity
 	)?
 ;
 
@@ -448,30 +465,32 @@ ProductExpression returns Expression:
 		///	- If one is a positive constant and the other decreasing, then decreasing
 		///	- If one is a negative constant and the other decreasing, then increasing
 		///	- Else normal
+		/// Quantity is left's quantity + right's quantity
 	)*
 ;
 
 FirstOrDropExpression returns Expression:
 	{FirstExpression} 'first' => ('(' left=INT ')')? right=FirstOrDropExpression
 	/// Verify right is an event
-	/// Result is an event
+	/// Type is event
 |	{DropExpression} 'drop' 'first' => ('(' left=INT ')')? right=FirstOrDropExpression
 	/// Verify right is an event
-	/// Result is an event
+	/// Type is event
 |	NegationExpression
 ;
 
 NegationExpression returns Expression:
 	{UnaryMinusExpression} =>'-' right=PowerExpression
 	/// Verify right is numeric
-	/// Result is of the same type as right
-	// Variability
+	/// Type is right's type 
+	/// Variability
 	///	- If right variability is constant, fixed or normal, then right variability
 	///	- If right variability is increasing, then decreasing
 	///	- If right variability is decreasing, then increasing
+	/// Quantity is right's quantity
 |	{NotExpression} =>'not' right=PowerExpression
 	/// Verify right is a Boolean
-	/// Result is Boolean
+	/// Type is Boolean
 |	PowerExpression
 ;
 
@@ -480,11 +499,12 @@ PowerExpression returns Expression:
 		{PowerExpression.left=current} '^' (negative?='-')? right=INT
 		/// Verify left is numeric
 		/// Verify, if left is constant and negative is true, that left is not zero
-		/// Result is of the same type as left
+		/// Type is left's type
 		/// Variability 
-		///	- If left variability is constant or fixed, then left variability
-		///	- Else if not negative, then left variability 
+		///	- If left's variability is constant or fixed, then left's variability
+		///	- Else if not negative, then left's variability 
 		///	- Else if negative, variability is normal
+		/// Quantity is left's quantity * right, or * - right if negative
 	)*	
 ;
 
@@ -492,9 +512,10 @@ AttributeExpression returns Expression:
 	Atom (
 		{AttributeExpression.atom=current} ('.' (rate?='rate' | previous?='previous'))?
 		/// If rate
-		///	Verify atom is an event
-		/// 	Result is a real
-		///	Atom could be of class:			Variability			Value
+		///	Verify left is an event
+		/// 	Type is real
+		///		Quantity is 1/time
+		///	Left could be of class:			Variability			Value
 		///		- EventLiteral				constant			0.0
 		///		- PropertyEvent				normal
 		///		- MyClock					atom's				atom's
@@ -502,90 +523,127 @@ AttributeExpression returns Expression:
 		///		- Reference					atom's				atom's
 		///		- parenthesized Expression	atom's				atom's
 		/// If previous
-		///	Verify atom is a variable
-		/// 	Result is atom's result
-		///	Variability is atom's variability
-		///	Value is atom's value
+		///	Verify left is a variable
+		/// 	Type is left's type
+		///		Variability is left's variability
+		///		Quantity is left's quantity
+		///		Value is left's value
 	)
 ;
 
 Atom returns Expression:
 	/// Numeric (integer or real) atoms
 	{NumericLiteral} value=NumericLiteral
-	/// Result is an integer or a real
+	/// Type is integer or real
 	/// Variability is constant
-|	{Time} 'time'
-	/// Result is a real
+	/// Quantity is none
+	/// Value is literal's value
+|	{Second} unit='s'
+	/// Type is integer
+	/// Variability is constant
+	/// Quantity is time
+	/// Value is 1
+|	{Time} time='time'
+	/// Type is real
 	/// Variability is increasing
-|	{inPTime} 'inPTime'
-	/// Result is a real
+	/// Quantity is time
+|	{inPTime} time='inPTime'
+	/// Type is real
 	/// Variability is increasing
+	/// Quantity is time
+|	{Tick} unit='tick'
+	/// Verify containing item has a clock
+	/// Type is integer
+	/// Variability is constant
+	/// Quantity is tick
+	/// Value is 1
+|	{ClockTime} time='clockTime'
+	/// Verify containing item has a clock
+	/// Type is integer
+	/// Variability is increasing
+	/// Quantity is tick
+|	{InPClockTime} time='inPClockTime'
+	/// Verify containing item has a clock
+	/// Type is integer
+	/// Variability is increasing
+	/// Quantity is tick
 |	{MyRate} rate='rate'
 	/// Verify currently defined item is an event
-	/// Variability 
-	///	- If rate is defined globally for currently defined item, then constant
-	///	- Else, normal
+	// Verify item's rate is defined globally 
+	/// Type is real
+	// Variability is item's rate variability
+	// Quantity is rate 
+	// Value, if constant, is item's rate value
 |	{PropertyPfd} identifier=[Property] '.' 'pfd'
-	/// Result is a real
+	/// Type is real
 	/// Variability is normal
+	/// Quantity is none
 |	{BuiltInFunctionCall} function=BuiltInFunction '(' argument=Expression ')'
-	/// Verify type: see BuiltInFunction
-	/// Result:      see BuiltInFunction
-	/// Variability: see BuiltInFunction
-	
+	/// Verify, if tick function, that containing item has a clock
+	/// Verify argument's type: see BuiltInFunction
+	/// Type:      				see BuiltInFunction
+	/// Variability: 			see BuiltInFunction
+	/// Quantity: 				see BuiltInFunction
 	
 	/// Boolean atoms
 |	{BooleanLiteral} value=('true' | 'false')
-	/// Result is a Boolean
+	/// Type is Boolean
 	/// Variability is constant
 |	{PropertyState} identifier=[Property] '.' state=('satisfaction' | 'violation')
-	/// Result is a Boolean
+	/// Type is Boolean
 	/// Variability is normal
 |	{BooleanFromCtl} 'boolean' '(' ctl=CtlExpression ')'
-	/// Result is a Boolean
+	/// Type is Boolean
 	/// Variability is normal
 
 	/// Variable (integer, real or Boolean) atoms
 |	{MyValue} attribute=('value' | 'previous')
 	/// Verify currently defined item is a variable
-	/// Result is of the type of currently defined item
-	/// Variability is the same as variability of currently defined item
+	/// Type is currently defined item's type
+	/// Variability is currently defined item's variability
+	/// Quantity is none
+	/// Value is currently defined item's value
 	
 	/// Event atoms
 |	{EventLiteral} 't0'
-	/// Result is an event
+	/// Type is event
 |	{PropertyEvent} identifier=[Property] '.' event=('eSatisfaction' | 'eViolation')
-	/// Result is an event
+	/// Type is event
 |	{MyClock} clock='clock'
-	/// Verify currently defined item is not a Ctl
-	/// Result is an event
+	/// Verify containing item has a clock
+	/// Type is event
 |	{Clock} identifier=[Item] '.' 'clock'
-	/// Verify identifier is not a Ctl
-	/// Result is an event
+	/// Type is event
 
 	/// Variable or event atoms
 |	{Reference} identifier=[Item] 
-	/// Result is of the type of identifier
-	// Variability is variability of identifier
+	/// Type is identifier's type
+	/// Variability is identifier's variability
+	/// Quantity is none
+	/// Value is identifier's value
 |	{FunctionCall} function=[Item] '(' arguments+=Expression (',' arguments+=Expression)* ')'
 	/// Verify function is a variable or an event
 	/// Verify number of arguments is equal to number of function parameters
 	/// Verify each argument type and variability match the specified function parameter type and variability
-	/// Result type is function type
+	/// Type is function's type
 	/// Variability is normal
+	/// Quantity is none
 |	'(' Expression ')' 
 ;
 
 BuiltInFunction:
-	'count'			// (Event)				==>	Integer				increasing
-|	'duration'		// (Boolean)			==>	Real				increasing
-|	'inPCount'		// (Event)				==>	Integer				increasing
-|	'inPDuration'	// (Boolean)			==>	Real				increasing
-|	'inPMax'		// (Integer or Real)	==>	Integer or Real		increasing
-|	'inPMin'		// (Integer or Real)	==>	Integer or Real		decreasing
-|	'inTMax'		// (Integer or Real)	==>	Integer or Real		increasing
-|	'inTMin'		// (Integer or Real)	==>	Integer or Real		decreasing
-|	'probability'	// (Event)				==>	Real				normal
+						// Argument's type			Type				Variability		Quantity
+	'count'				// (Event)				==>	Integer				increasing		none
+|	'duration'			// (Boolean)			==>	Real				increasing		time
+|	'clockDuration'		// (Boolean)			==>	Integer				increasing		tick
+|	'inPCount'			// (Event)				==>	Integer				increasing		none
+|	'inPDuration'		// (Boolean)			==>	Real				increasing		time
+|	'inPClockDuration'	// (Boolean)			==>	Integer				increasing		tick
+|	'inPMax'			// (Integer or Real)	==>	Integer or Real		increasing		argument's
+|	'inPMin'			// (Integer or Real)	==>	Integer or Real		decreasing		argument's
+|	'inTMax'			// (Integer or Real)	==>	Integer or Real		increasing		argument's
+|	'inTMin'			// (Integer or Real)	==>	Integer or Real		decreasing		argument's
+|	'probability'		// (Event)				==>	Real				normal			none
 ;
  
 NumericLiteral:

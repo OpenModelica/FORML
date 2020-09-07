@@ -21,9 +21,42 @@ class Forml0ParsingTest {
 	ParseHelper<Model> parseHelper
 	
 	@Test
+	def void expression1() {
+		val result = parseHelper.parse('''
+			Integer i1 is 5;
+			Integer i2 is external;
+			Event e is external;
+			Real r1 is e.rate;
+			Integer i3 is i2.previous;
+			Real r2 is r1^5;
+			Real r3 is i1^-4;
+			Real r4 is -r3;
+			Real r5 is -r1^5;
+			Boolean b1 is true;
+			Boolean b2 is not b1;
+			Boolean b3 is b1;
+			Event e2 is first e;
+			Event e3 is drop first e;
+			Event e4 is first (5) e;
+			Event e5 is drop first (2) e;
+			Real r6 is r1*r2*r4;
+			Real r7 is r1*i1;
+			Real r8 is i1;
+			Real r9 is 5*(r1+r2);
+			Real r10 is r1/r2;
+		''')
+		Assertions.assertNotNull(result)
+		val errors = result.eResource.errors
+		Assertions.assertTrue(errors.isEmpty, '''Unexpected errors: «errors.join(", ")»''')
+	}
+ 	
+	@Test
 	def void boolean1() {
 		val result = parseHelper.parse('''
-			Ctl ctl1  is from   e;
+			Integer i1 is external;
+			Integer i2 is external;
+			Event e1 is external;
+			Ctl ctl1 is for 5*s;
 			Boolean b1 is false;
 			Boolean b2 begin
 				value is b1;
@@ -37,15 +70,16 @@ class Forml0ParsingTest {
 			end;
 			Boolean b5 begin
 				when t0 define value is true;
-				during b1 define next is false;
+				during b1 define next is i1 > i2;
 				during b2 define value is previous;
 			end;
 			Boolean b6 begin
-				clock is at every 5;
-				at every 5 define value is true;
+				clock is at every 5*s;
+				at every 5*s define value is true;
 				during ctl1 define next is false;
 				during b2 define value is previous;
 			end;
+			Boolean b7 is external;
 		''')
 		Assertions.assertNotNull(result)
 		val errors = result.eResource.errors
@@ -255,8 +289,8 @@ class Forml0ParsingTest {
 	def void atom1() {
 		val result = parseHelper.parse('''
 			Boolean b is external;
-			Property p  is ensure  b;
-			Boolean s is p.satisfaction;
+			Property p is ensure  b;
+			Boolean s1 is p.satisfaction;
 			Boolean v is p.violation;
 			Event e is p.eViolation;
 			Event e2 is p.eSatisfaction;

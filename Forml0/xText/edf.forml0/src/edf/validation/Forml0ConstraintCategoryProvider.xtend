@@ -51,6 +51,10 @@ import edf.forml0.OrExpression
 import edf.forml0.XorExpression
 import edf.forml0.BuiltInFunctionCall
 import edf.forml0.AttributeExpression
+import edf.forml0.Second
+import edf.forml0.Tick
+import edf.forml0.ClockTime
+import edf.forml0.InPClockTime
 
 //=============================================================================
 //
@@ -74,8 +78,12 @@ class Forml0ConstraintCategoryProvider {
 	def dispatch Forml0ConstraintCategory constraintCategoryFor (Expression expr) {
 		switch (expr) {
 			NumericLiteral:				notELSConstraint
+			Second:						notELSConstraint
 			Time:						notELSConstraint
 			inPTime:					notELSConstraint
+			Tick:						notELSConstraint
+			ClockTime:					notELSConstraint
+			InPClockTime:				notELSConstraint
 			MyRate:						notELSConstraint
 			PropertyPfd:				notELSConstraint
 			BuiltInFunctionCall:		notELSConstraint
@@ -121,9 +129,6 @@ class Forml0ConstraintCategoryProvider {
 			ChangesExpression:			notELSConstraint
 			BecomesExpression:			notELSConstraint
 			LeavesExpression:			notELSConstraint
-			
-			Event:						notELSConstraint
-			Ctl:						notELSConstraint
 		}
 	}
 	

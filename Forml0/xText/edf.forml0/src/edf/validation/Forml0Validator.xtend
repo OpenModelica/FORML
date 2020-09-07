@@ -62,24 +62,33 @@ import edf.forml0.PropertyPfd
 import edf.forml0.PropertyState
 import edf.forml0.PropertyEvent
 import edf.forml0.EventDefinition
+import edf.forml0.Tick
+import edf.forml0.CtlDefinition
+import edf.forml0.ClockTime
+import edf.forml0.InPClockTime
+import edf.forml0.Rate
 
 class Forml0Validator extends AbstractForml0Validator {
 	public static val WRONG_TYPE        = "edf.forml0.WrongType"
+	public static val WRONG_QUANTITY    = "edf.forml0.WrongQuantity"
 	public static val WRONG_VARIABILITY = "edf.forml0.WrongVariability"
 	public static val WRONG_CONSTRAINT  = "edf.forml0.WrongConstraint"
 	public static val WRONG_NUMBER      = "edf.forml0.WrongNumberOfArguments"
 	public static val NOT_EXTERNAL	    = "edf.forml0.NotExternal"
 	public static val DIVISION_BY_ZERO  = "edf.forml0.DivisionByZero"
 	public static val WRONG_DURATION    = "edf.forml0.NegativeOrNullDuration"
+	public static val WRONG_RATE        = "edf.forml0.NegativeOrNullRate"
 	public static val SELF_REFERENCE    = "edf.forml0.SelfReference"
+	public static val NO_CLOCK          = "edf.forml0.NoClock"
 	
 	@Inject extension Forml0TypeProvider
 	@Inject extension Forml0VariabilityProvider
 	@Inject extension Forml0ValueProvider
 	@Inject extension Forml0ConstraintCategoryProvider
+	@Inject extension Forml0QuantityProvider
 	
 	def private Forml0Type getTypeAndCheckNotNull (Expression expr, EReference reference) {
-		if (expr?.typeFor === null) error ("Type undefined", reference, WRONG_TYPE)
+		if (expr?.typeFor === null) error ("Undefined identifier", reference, WRONG_TYPE)
 		return expr?.typeFor
 	}
 	
@@ -105,7 +114,9 @@ class Forml0Validator extends AbstractForml0Validator {
 	def private verifyExpectedType (EReference reference, Expression expr, Forml0Type expectedType) {
 		// Verifies that expr is compatible with expectedType
 		var actualType = getTypeAndCheckNotNull (expr, reference)
-		if (!typeCompatibility(actualType, expectedType))
+		if (!typeCompatibility(actualType, expectedType) && expectedType.toString == "Integer" && actualType.toString == "Integer or Real")
+			error ("Expected type " + expectedType.toString + ", but got type Real" , reference, WRONG_TYPE)
+		else if (!typeCompatibility(actualType, expectedType))
 			error ("Expected type " + expectedType.toString + ", but got type " + actualType.toString, reference, WRONG_TYPE)
 	}
 	
@@ -117,6 +128,51 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 
 	@Check
+	def verifyClock (Tick expr) {
+		var container = expr.getContainerOfType(typeof(Item))
+		var boolean hasClock
+		switch container {
+			Boolean:	hasClock = container.booleanDefinition.clock
+			Integer:	hasClock = container.integerDefinition.clock
+			Real:		hasClock = container.realDefinition.clock
+			Event:		hasClock = container.eventDefinition.clock
+			Property:	hasClock = container.propertyDefinition.clock
+			Ctl:		hasClock = container.ctlDefinition.clock
+		}	
+		if (!hasClock) error ("The item being defined does not have a clock", Forml0Package.Literals::TICK__UNIT, NO_CLOCK)
+	}
+	
+	@Check
+	def verifyClock (ClockTime expr) {
+		var container = expr.getContainerOfType(typeof(Item))
+		var boolean hasClock
+		switch container {
+			Boolean:	hasClock = container.booleanDefinition.clock
+			Integer:	hasClock = container.integerDefinition.clock
+			Real:		hasClock = container.realDefinition.clock
+			Event:		hasClock = container.eventDefinition.clock
+			Property:	hasClock = container.propertyDefinition.clock
+			Ctl:		hasClock = container.ctlDefinition.clock
+		}	
+		if (!hasClock) error ("The item being defined does not have a clock", Forml0Package.Literals::CLOCK_TIME__TIME, NO_CLOCK)
+	}
+	
+	@Check
+	def verifyClock (InPClockTime expr) {
+		var container = expr.getContainerOfType(typeof(Item))
+		var boolean hasClock
+		switch container {
+			Boolean:	hasClock = container.booleanDefinition.clock
+			Integer:	hasClock = container.integerDefinition.clock
+			Real:		hasClock = container.realDefinition.clock
+			Event:		hasClock = container.eventDefinition.clock
+			Property:	hasClock = container.propertyDefinition.clock
+			Ctl:		hasClock = container.ctlDefinition.clock
+		}	
+		if (!hasClock) error ("The item being defined does not have a clock", Forml0Package.Literals::IN_PCLOCK_TIME__TIME, NO_CLOCK)
+	}
+	
+	@Check
 	def verifyType (MyRate expr) {
 		if (expr.getContainerOfType(typeof(Event)) === null) 
 			error ("Expected type Event for item being defined", Forml0Package.Literals::MY_RATE__RATE, WRONG_TYPE)
@@ -125,25 +181,45 @@ class Forml0Validator extends AbstractForml0Validator {
 	@Check
 	def verifyType (BuiltInFunctionCall expr) {
 		switch expr.function {
-		 	case 'count': 		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::eventType)
-		 	case 'duration':    verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::booleanType)
-		 	case 'inPCount': 	verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::eventType)
-		 	case 'inPuration':  verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::booleanType)
-		 	case 'inPMax':		 verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::numericType)
-		 	case 'inPMin':		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::numericType)
-		 	case 'inTMax':		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::numericType)
-		 	case 'inTMin':		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::numericType)
-		 	case 'probability': verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
-									expr.argument, Forml0TypeProvider::eventType)	
+		 	case 'count': 				verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::eventType)
+		 	case 'duration':    		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::booleanType)
+		 	case 'clockDuration':   	verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::booleanType)
+		 	case 'inPCount': 			verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::eventType)
+		 	case 'inPuration':  		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::booleanType)
+		 	case 'inPClockDuration':    verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::booleanType)
+		 	case 'inPMax':		 		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::numericType)
+		 	case 'inPMin':				verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::numericType)
+		 	case 'inTMax':				verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::numericType)
+		 	case 'inTMin':				verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::numericType)
+		 	case 'probability': 		verifyExpectedType (Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT,
+											expr.argument, Forml0TypeProvider::eventType)	
 		}
+	}
+	
+	@Check
+	def verifyClock (BuiltInFunctionCall expr) {
+		var container = expr.getContainerOfType(typeof(Item))
+		var boolean hasClock
+		if (expr.function == 'clockDuration' || expr.function == 'inPClockDuration')
+			switch container {
+				Boolean:	hasClock = container.booleanDefinition.clock
+				Integer:	hasClock = container.integerDefinition.clock
+				Real:		hasClock = container.realDefinition.clock
+				Event:		hasClock = container.eventDefinition.clock
+				Property:	hasClock = container.propertyDefinition.clock
+				Ctl:		hasClock = container.ctlDefinition.clock
+			}	
+		if (!hasClock) error ("The item being defined does not have a clock", Forml0Package.Literals::BUILT_IN_FUNCTION_CALL__ARGUMENT, NO_CLOCK)
 	}
 	
 	@Check
@@ -155,9 +231,18 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
-	def verifyType (MyClock expr) {
-		if (expr.getContainerOfType(typeof(Ctl)) !== null)
-			error ("Ctl do not have clocks", Forml0Package.Literals::MY_CLOCK__CLOCK, WRONG_TYPE)
+	def verifyClock (MyClock expr) {
+		var container = expr.getContainerOfType(typeof(Item))
+		var boolean hasClock
+		switch container {
+			Boolean:	hasClock = container.booleanDefinition.clock
+			Integer:	hasClock = container.integerDefinition.clock
+			Real:		hasClock = container.realDefinition.clock
+			Event:		hasClock = container.eventDefinition.clock
+			Property:	hasClock = container.propertyDefinition.clock
+			Ctl:		hasClock = container.ctlDefinition.clock
+		}	
+		if (!hasClock)	error ("The item being defined does not have a clock", Forml0Package.Literals::MY_CLOCK__CLOCK, NO_CLOCK)
 	}
 	
 	@Check
@@ -277,6 +362,17 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (ProductExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		var q      = expr      .quantityFor
+		if ((qLeft.time != 0 && qRight.ticks != 0) || (qLeft.ticks != 0 && qRight.time != 0))
+			error ("Multiplying Durations and Clock Ticks", Forml0Package.Literals::PRODUCT_EXPRESSION__RIGHT, WRONG_QUANTITY)
+		if (q.ticks > 0 && expr.typeFor != Forml0TypeProvider::integerType)
+			error ("Tick numbers must be Integers", Forml0Package.Literals::PRODUCT_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (DivisionExpression expr) {
 		verifyExpectedType (Forml0Package.Literals::DIVISION_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::numericType)
@@ -284,6 +380,19 @@ class Forml0Validator extends AbstractForml0Validator {
 			expr.right, Forml0TypeProvider::numericType)
 		if (expr.right.variabilityFor == Forml0VariabilityProvider::constant && expr.right.valueFor == 0.0)
 			error ("Division by zero since right operand is constant 0", Forml0Package.Literals::DIVISION_EXPRESSION__RIGHT, DIVISION_BY_ZERO)
+	}
+	
+	@Check
+	def verifyQuantity (DivisionExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		var q      = expr      .quantityFor
+		if ((qLeft.time != 0 && qRight.ticks != 0) || (qLeft.ticks != 0 && qRight.time != 0))
+			error ("Dividing Durations and Clock Ticks", Forml0Package.Literals::DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+		if (q.ticks > 0 && expr.typeFor != Forml0TypeProvider::integerType)
+			error ("Tick numbers must be whole numbers", Forml0Package.Literals::DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+//		if (q.ticks < 0)
+//			error ("Power for Clock Ticks must not be negative, instead got " + expr.quantityFor.ticks, Forml0Package.Literals::DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -295,12 +404,43 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (IntegerDivisionExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		var q      = expr      .quantityFor
+		if ((qLeft.time != 0 && qRight.ticks != 0) || (qLeft.ticks != 0 && qRight.time != 0))
+			error ("Dividing Durations and Clock Ticks", Forml0Package.Literals::INTEGER_DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+		if (q.ticks > 0 && expr.typeFor != Forml0TypeProvider::integerType)
+			error ("Tick numbers must be whole numbers", Forml0Package.Literals::INTEGER_DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+//		if (q.ticks < 0)
+//			error ("Power for Clock Ticks must not be negative, instead got " + expr.quantityFor.ticks, Forml0Package.Literals::INTEGER_DIVISION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (AdditionExpression expr) {
 		verifyExpected2Types (Forml0Package.Literals::ADDITION_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::numericType,
 			           Forml0TypeProvider::eventType)
-		verifyExpectedType (Forml0Package.Literals::ADDITION_EXPRESSION__RIGHT, 
-			expr.right, Forml0TypeProvider::numericType)
+		verifyExpected2Types (Forml0Package.Literals::ADDITION_EXPRESSION__RIGHT, 
+			expr.right, Forml0TypeProvider::numericType,
+			            Forml0TypeProvider::eventType)
+		if (expr.right.typeFor == Forml0TypeProvider::eventType && expr.left.typeFor == Forml0TypeProvider::eventType)
+			error ("Adding an Event to an Event: use 'or'", Forml0Package.Literals::ADDITION_EXPRESSION__LEFT, WRONG_TYPE)
+	}
+	
+	@Check
+	def verifyQuantity (AdditionExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		var q      = expr      .quantityFor
+		if (expr.left .typeFor == Forml0TypeProvider::eventType && !(qRight.equal (Forml0QuantityProvider::time) || qRight.equal (Forml0QuantityProvider::tick)))
+			error ("Not adding a duration to an Event", Forml0Package.Literals::ADDITION_EXPRESSION__RIGHT, WRONG_TYPE)
+		if (expr.right.typeFor == Forml0TypeProvider::eventType && !(qLeft .equal (Forml0QuantityProvider::time) || qLeft .equal (Forml0QuantityProvider::tick)))
+			error ("Not adding a duration to an Event", Forml0Package.Literals::ADDITION_EXPRESSION__LEFT , WRONG_TYPE)
+		if (expr.left .typeFor != Forml0TypeProvider::eventType && expr.right.typeFor != Forml0TypeProvider::eventType && !qLeft.equal (qRight))
+			error ("Adding a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::ADDITION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+		if (q.ticks > 0 && expr.typeFor != Forml0TypeProvider::integerType)
+			error ("Tick numbers must be Integers", Forml0Package.Literals::ADDITION_EXPRESSION__RIGHT, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -309,6 +449,17 @@ class Forml0Validator extends AbstractForml0Validator {
 			expr.left, Forml0TypeProvider::numericType)
 		verifyExpectedType (Forml0Package.Literals::SUBSTRACTION_EXPRESSION__RIGHT, 
 			expr.right, Forml0TypeProvider::numericType)
+	}
+	
+	@Check
+	def verifyQuantity (SubstractionExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		var q      = expr      .quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Adding a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::SUBSTRACTION_EXPRESSION__RIGHT, WRONG_QUANTITY)
+		if (q.ticks > 0 && expr.typeFor != Forml0TypeProvider::integerType)
+			error ("Tick numbers must be Integers", Forml0Package.Literals::SUBSTRACTION_EXPRESSION__RIGHT, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -340,6 +491,14 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (EqualityExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::EQUALITY_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (DifferenceExpression expr) {
 		verifyExpected2Types (Forml0Package.Literals::DIFFERENCE_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::booleanType,
@@ -352,11 +511,27 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (DifferenceExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::DIFFERENCE_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (LessThanExpression expr) {
 		verifyExpectedType (Forml0Package.Literals::LESS_THAN_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::numericType)
 		verifyExpectedType (Forml0Package.Literals::LESS_THAN_EXPRESSION__RIGHT, 
 			expr.right, Forml0TypeProvider::numericType)
+	}
+	
+	@Check
+	def verifyQuantity (LessThanExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::LESS_THAN_EXPRESSION__RIGHT, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -368,6 +543,14 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (LessOrEqualExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::LESS_OR_EQUAL_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (GreaterThanExpression expr) {
 		verifyExpectedType (Forml0Package.Literals::GREATER_THAN_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::numericType)
@@ -376,11 +559,27 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 	
 	@Check
+	def verifyQuantity (GreaterThanExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::GREATER_THAN_EXPRESSION__RIGHT, WRONG_QUANTITY)
+	}
+	
+	@Check
 	def verifyType (GreaterOrEqualExpression expr) {
 		verifyExpectedType (Forml0Package.Literals::GREATER_OR_EQUAL_EXPRESSION__LEFT, 
 			expr.left, Forml0TypeProvider::numericType)
 		verifyExpectedType (Forml0Package.Literals::GREATER_OR_EQUAL_EXPRESSION__RIGHT, 
 			expr.right, Forml0TypeProvider::numericType)
+	}
+	
+	@Check
+	def verifyQuantity (GreaterOrEqualExpression expr) {
+		var qLeft  = expr.left .quantityFor
+		var qRight = expr.right.quantityFor
+		if (!qLeft.equal (qRight))
+			error ("Comparing a " + qLeft.toString + " to a " + qRight.toString, Forml0Package.Literals::GREATER_OR_EQUAL_EXPRESSION__RIGHT, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -428,6 +627,14 @@ class Forml0Validator extends AbstractForml0Validator {
 	def verifyType (IfExpression expr) {
 		verifyTypesCompatibility (Forml0Package.Literals::IF_EXPRESSION__ELSE, 
 			expr.then, expr.^else)
+	}
+	
+	@Check
+	def verifyQuantity (IfExpression expr) {
+		var qThen = expr. then.quantityFor
+		var qElse = expr.^else.quantityFor
+		if (!qThen.equal (qElse))
+			error ("Comparing a " + qThen.toString + " to a " + qElse.toString, Forml0Package.Literals::IF_EXPRESSION__ELSE, WRONG_QUANTITY)
 	}
 	
 	@Check
@@ -529,6 +736,27 @@ class Forml0Validator extends AbstractForml0Validator {
 	}
 		
 	@Check
+	def verifyQuantity (Integer item) {
+		if (item.integerDefinition.external) return Forml0QuantityProvider::scalar
+		if (item.integerDefinition.global || item.integerDefinition.value) {
+			var q = item.integerDefinition.globalValue?.expression?.quantityFor
+			if (!q.equal(Forml0QuantityProvider::scalar))
+				error ("Expected a scalar, but got a " + q.toString + " expression ",
+ 				  Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, WRONG_QUANTITY)	
+		}
+		if (item.integerDefinition.statements !== null) {
+			var statements = item.integerDefinition.statements
+			var int i
+			for (i=0; i < statements.size; i++) {
+				var q = statements.get(i).value?.expression?.quantityFor
+				if (!q.equal(Forml0QuantityProvider::scalar))
+					error ("Expected a scalar, but got a " + q.toString + " expression ",
+ 				  	Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, WRONG_QUANTITY)	
+			}
+		}
+	}
+		
+	@Check
 	def verifyExternal (Integer item) {
  		if (item?.parameters?.size > 0 && !item?.integerDefinition?.external)    
  			error ("In Form-L0, Integer definitions with parameters other than time must be external", Forml0Package.Literals::INTEGER__INTEGER_DEFINITION, NOT_EXTERNAL)
@@ -545,6 +773,27 @@ class Forml0Validator extends AbstractForml0Validator {
  				  Forml0Package.Literals::REAL__REAL_DEFINITION, WRONG_VARIABILITY)
 	}
 	
+	@Check
+	def verifyQuantity (Real item) {
+		if (item.realDefinition.external) return Forml0QuantityProvider::scalar
+		if (item.realDefinition.global || item.realDefinition.value) {
+			var q = item.realDefinition.globalValue?.expression?.quantityFor
+			if (!q.equal(Forml0QuantityProvider::scalar))
+				error ("Expected a scalar, but got a " + q.toString + " expression ",
+ 				  Forml0Package.Literals::REAL__REAL_DEFINITION, WRONG_QUANTITY)	
+		}
+		if (item.realDefinition.statements !== null) {
+			var statements = item.realDefinition.statements
+			var int i
+			for (i=0; i < statements.size; i++) {
+				var q = statements.get(i).value?.expression?.quantityFor
+				if (!q.equal(Forml0QuantityProvider::scalar))
+					error ("Expected a scalar, but got a " + q.toString + " expression ",
+ 				  	Forml0Package.Literals::REAL__REAL_DEFINITION, WRONG_QUANTITY)	
+			}
+		}
+	}
+		
 	@Check
 	def verifyExternal (Real item) {
  		if (item?.parameters?.size > 0 && !item.realDefinition?.external)    
@@ -572,33 +821,48 @@ class Forml0Validator extends AbstractForml0Validator {
 	
 	@Check
 	def verifyDuration (Duration d) {
-		if (d.value.expression.variabilityFor == Forml0VariabilityProvider::constant && d.value.expression.valueFor <= 0.0)
-			error ("Constant durations must be strictly positive, and this one is " + d.value.expression.valueFor, Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
-		if (d.ticks) verifyExpectedType (Forml0Package.Literals::DURATION__VALUE, 
-			d.value.expression, Forml0TypeProvider::integerType)
+		var q = d.expression.quantityFor
+		if (!q.equal(Forml0QuantityProvider::rate) && !q.equal(Forml0QuantityProvider::tick))
+			error ("Incorrect quantity for a duration, this one is " + q, Forml0Package.Literals::DURATION__EXPRESSION, WRONG_QUANTITY)
+		if (q.equal(Forml0QuantityProvider::tick)) verifyExpectedType (Forml0Package.Literals::DURATION__EXPRESSION, 
+			d.expression, Forml0TypeProvider::integerType)
 		var item = d.getContainerOfType(typeof(Item))
-		if (d.ticks && item === null) 
-			error ("Use of ticks without a containing item", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+		if (q.equal(Forml0QuantityProvider::tick) && item === null) 
+			error ("Use of ticks without a containing item", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		if (item.^boolean !== null) {
 			if (!(item.^boolean as Boolean).booleanDefinition.clock) 
-				error ("Use of ticks when containing Boolean does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+				error ("Use of ticks when containing Boolean does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		}	
 		if (item.integer !== null) {
 			if (!(item.integer as Integer).integerDefinition.clock) 
-				error ("Use of ticks when containing Integer does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+				error ("Use of ticks when containing Integer does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		}
 		if (item.real !== null) {
 			if (!(item.real as Real).realDefinition.clock) 
-				error ("Use of ticks when containing Real does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+				error ("Use of ticks when containing Real does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		}
 		if (item.event !== null) {
 			if (!(item.event as Event).eventDefinition.clock) 
-				error ("Use of ticks when containing Event does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+				error ("Use of ticks when containing Event does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		}
 		if (item.property !== null) {
 			if (!(item.^property as Property).propertyDefinition.clock) 
-				error ("Use of ticks when containing Property does not have a clock ", Forml0Package.Literals::DURATION__VALUE, WRONG_DURATION)
+				error ("Use of ticks when containing Property does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
 		}
+		if (item.ctl !== null) {
+			if (!(item.^ctl as Ctl).ctlDefinition.clock) 
+				error ("Use of ticks when containing Ctl does not have a clock ", Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
+		}
+		if (d.expression.variabilityFor == Forml0VariabilityProvider::constant && d.expression.valueFor <= 0.0)
+			error ("Constant durations must be strictly positive, and this one is " + d.expression.valueFor, Forml0Package.Literals::DURATION__EXPRESSION, WRONG_DURATION)
+	}
+	
+	@Check
+	def verifyDuration (Rate r) {
+		if (!r.expression.quantityFor.equal(Forml0QuantityProvider::rate))  
+			error ("Incorrect quantity for a rate", Forml0Package.Literals::RATE__EXPRESSION, WRONG_RATE)
+		if (r.expression.variabilityFor == Forml0VariabilityProvider::constant && r.expression.valueFor <= 0.0)
+			error ("Constant rates must be strictly positive, and this one is " + r.expression.valueFor, Forml0Package.Literals::RATE__EXPRESSION, WRONG_RATE)
 	}
 	
 }	

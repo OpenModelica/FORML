@@ -4,6 +4,7 @@
 package edf.validation
 
 import edf.forml0.AdditionExpression
+import edf.forml0.AttributeExpression
 import edf.forml0.DivisionExpression
 import edf.forml0.Expression
 import edf.forml0.Integer
@@ -14,10 +15,13 @@ import edf.forml0.PowerExpression
 import edf.forml0.ProductExpression
 import edf.forml0.Real
 import edf.forml0.Reference
+import edf.forml0.Second
 import edf.forml0.SubstractionExpression
 import edf.forml0.UnaryMinusExpression
-import edf.forml0.AttributeExpression
-import edf.forml0.EventLiteral
+import edf.forml0.Tick
+import edf.forml0.MyRate
+import edf.forml0.Event
+
 import static extension org.eclipse.xtext.EcoreUtil2.*
 
 //=============================================================================
@@ -32,7 +36,8 @@ class Forml0ValueProvider {
 	
 	def dispatch double valueFor (Expression expr) {
 		switch (expr) {
-			AttributeExpression:		expr.atom.valueFor
+			Second:						1.0
+			Tick:						1.0
 			UnaryMinusExpression:		if (expr.right.valueFor == unknown) 																unknown									
 										else 																								- expr.right.valueFor
 			ProductExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
@@ -51,6 +56,26 @@ class Forml0ValueProvider {
 	
 	def dispatch double valueFor (NumericLiteral expr) {
 		(expr.value.integerValue + Double.parseDouble (expr.value.decimalValue)) * Double.parseDouble ("1." + expr.value.exponent)
+	}
+	
+	def dispatch double valueFor (MyRate expr) {
+		var container = expr?.getContainerOfType(typeof(Event))
+		if (container === null) 				 unknown
+		else if (container.eventDefinition.rate) container.eventDefinition.rateValue.expression.valueFor
+		else    								 unknown
+	}
+	
+	def dispatch double valueFor (AttributeExpression expr) {
+		// If attribute is previous, value is expr.atom, which must be constant for value to have a meaning
+		if (expr.previous) expr.atom.valueFor
+		// If attribute is rate, expr.atom must be an event expression
+		// Value is unknown except when expr.atom refers to a named event defined by a global rate
+		else if (expr.rate) {
+			var atom = expr.atom
+			if (atom instanceof Event) {
+				if (atom.eventDefinition.rate) atom.eventDefinition.rateValue.expression.valueFor else unknown
+			} else unknown
+		} else unknown
 	}
 	
 	def dispatch double valueFor (Reference expr) {
