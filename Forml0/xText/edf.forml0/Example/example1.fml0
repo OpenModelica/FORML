@@ -1,20 +1,93 @@
-Integer i1 begin
-	value is 5;
+// Implicit units: MKSA, degree Celsius 
+Real exp (Real) is external;
+
+// Two global parameters
+constant Real gg is 1.5/3600;		  // Parameter used in the derivative of level 
+Real theta_in is 15;	          	  // Temperature of input water, in Celsius
+
+constant Real max_level     is  8;		constant Real min_level     is  6;
+constant Real overFlowLevel is 10;		constant Real dryOutLevel   is  4;
+Real level begin  				      // Height of the water in the tank
+  when t0 define value is 7;    	  // level is defined by its initial value and derivative
+  derivative is (gg/s * (pump_1_v_c + pump_2_v_c - valve_1_v_c));
 end;
-
-Integer i2 is iii;
-Integer i3 is external;
-Integer i4 begin
-	clock is t0;
+Real theta begin    			      // Temperature of the water in the tank
+  when t0 define value is 30.9261;
+  derivative is 
+    ((gg/s * (pump_1_v_c + pump_2_v_c) * (theta_in-value) + 23.88915/(3600*s)) / level);
 end;
+  
+// HydroDevice
+Real b1 is 3.0295;	 
+Real b2 is 0.7578;
+Real bc is 0.05756; 
+Real bd is 0.2301;
 
-Event e1 is t0;
+Integer on        is 1;
+Integer off       is 2;
+Integer stuck_on  is 3;
+Integer stuck_off is 4;
 
-Boolean b1 is true;
+Real lambda is (b1*exp(bc*(theta-20)) + b2*exp(-bd*(theta-20)))/(b1+b2);
+  
+// HydroDevice pump_1
+Real pump_1_lambda_hat is 2.2831e-3/3600;	 
+Real pump_1_lambda is lambda*pump_1_lambda_hat;
+Integer pump_1_state begin
+  when   t0                                        define value is on;
+  during value = on                                define (value becomes stuck_on).rate  is pump_1_lambda/s;
+  during value = on                                define (value becomes stuck_off).rate is pump_1_lambda/s;
+  during value = off                               define (value becomes stuck_on).rate  is pump_1_lambda/s;
+  during value = off                               define (value becomes stuck_off).rate is pump_1_lambda/s;
+  after  value becomes stuck_on                    define value is previous;
+  after  value becomes stuck_off                   define value is previous;
+  during level <= min_level and value <> stuck_off define value is on;
+  during level >= max_level and value <> stuck_on  define value is off;
+  during level >  min_level and level < max_level  define value is previous;
+end;
+Real pump_1_v_c is if pump_1_state = on or pump_1_state = stuck_on then 1 else 0; 
+  
+// HydroDevice pump_2
+Real pump_2_lambda_hat is 2.8571e-3/3600;  
+Real pump_2_lambda is lambda*pump_2_lambda_hat;
+Integer pump_2_state begin
+  when   t0                                        define value is on;
+  during value = on                                define (value becomes stuck_on).rate  is pump_2_lambda/s;
+  during value = on                                define (value becomes stuck_off).rate is pump_2_lambda/s;
+  during value = off                               define (value becomes stuck_on).rate  is pump_2_lambda/s;
+  during value = off                               define (value becomes stuck_off).rate is pump_2_lambda/s;
+  after  value becomes stuck_on                    define value is previous;
+  after  value becomes stuck_off                   define value is previous;
+  during level <= min_level and value <> stuck_off define value is on;
+  during level >= max_level and value <> stuck_on  define value is off;
+  during level >  min_level and level < max_level  define value is previous;
+end;
+Real pump_2_v_c is if pump_2_state = on or pump_2_state = stuck_on then 1 else 0;
+  
+// HydroDevice valve_1
+Real valve_1_lambda_hat is 1.5625e-3/3600;	 
+Real valve_1_lambda is lambda*valve_1_lambda_hat;
+Integer valve_1_state begin
+  when   t0                                        define value is on;
+  during value = on                                define (value becomes stuck_on).rate  is valve_1_lambda/s;  
+  during value = on                                define (value becomes stuck_off).rate is valve_1_lambda/s;
+  during value = off                               define (value becomes stuck_on).rate  is valve_1_lambda/s;
+  during value = off                               define (value becomes stuck_off).rate is valve_1_lambda/s;
+  after  value becomes stuck_on                    define value is previous;
+  after  value becomes stuck_off                   define value is previous;
+  during level <= min_level and value <> stuck_on  define value is off;
+  during level >= max_level and value <> stuck_off define value is on;
+  during level >  min_level and level < max_level  define value is previous;
+end;
+Real valve_1_v_c is if valve_1_state = on or valve_1_state = stuck_on then 1 else 0;
+  
 
-Real r1 is 1.5;
-Real r2 is 5;
-
-Integer i5 is e1; 
-
+// to be added within object tank: definition of undesirable events
+Event eDryout   is level <= dryOutLevel   becomes true; 
+Event eOverflow is level >= overFlowLevel becomes true;
+Event eBoiling  is theta >= 100           becomes true;
+  
+Real p1 is probability (eDryout);
+Real p2 is probability (eOverflow);
+Real p3 is probability (eBoiling);	
 

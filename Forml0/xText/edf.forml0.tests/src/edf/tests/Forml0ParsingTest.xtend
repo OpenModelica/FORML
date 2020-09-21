@@ -59,14 +59,14 @@ class Forml0ParsingTest {
 			Ctl ctl1 is for 5*s;
 			Boolean b1 is false;
 			Boolean b2 begin
-				value is b1;
+				define value is b1;
 			end;
 			Boolean b3 begin
 				clock is t0;
 			end;
 			Boolean b4 begin
 				clock is t0;
-				value is b2;
+				define value is b2;
 			end;
 			Boolean b5 begin
 				when t0 define value is true;
@@ -160,11 +160,11 @@ class Forml0ParsingTest {
 			Real r is external;
 			Event event1 begin
 				clock is at every 10;
-				occurrence is t0;
+				define occurrence is t0;
 			end;
 			Event event2 begin
 				clock is t0;
-				rate is 10;
+				define rate is 10;
 			end;
 			Event event3 begin
 				clock is b becomes true;
@@ -173,10 +173,10 @@ class Forml0ParsingTest {
 				during b            define rate       is 1.1;
 			end;
 			Event event4 begin
-				occurrence is t0;
+				define occurrence is t0;
 			end;
 			Event event5 begin
-				rate is 5;
+				define rate is 5;
 			end;
 			Event event6 begin
 				during b define occurrence is e1;

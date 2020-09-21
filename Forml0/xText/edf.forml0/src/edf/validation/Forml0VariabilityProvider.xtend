@@ -62,6 +62,7 @@ import edf.forml0.Second
 import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
+import edf.forml0.MyDerivative
 
 //=============================================================================
 //
@@ -89,6 +90,8 @@ class Forml0VariabilityProvider {
 	public static val decreasing = new decreasing
 	public static val normal     = new normal
 	
+	static val unknown = Forml0ValueProvider::unknown
+	
 	@Inject extension Forml0ValueProvider
 	
 	def dispatch Forml0Variability variabilityFor (Expression expr) {
@@ -100,6 +103,7 @@ class Forml0VariabilityProvider {
 			Tick:						constant
 			ClockTime:					increasing
 			InPClockTime:				increasing
+		///	MyDerivative:
 		///	MyRate:
 			PropertyPfd:				normal
 		///	BuiltInFunctionCall:
@@ -108,7 +112,7 @@ class Forml0VariabilityProvider {
 			PropertyState:				normal
 			BooleanFromCtl:				normal
 			
-			MyValue:					expr.getContainerOfType(typeof(Item)).variabilityFor
+			MyValue:					expr.getContainerOfType(typeof(Item)) ?.variabilityFor ?: normal
 			
 			EventLiteral:				normal
 			PropertyEvent:				normal
@@ -117,10 +121,10 @@ class Forml0VariabilityProvider {
 		///	Reference:					
 			FunctionCall:				normal
 		
-			AttributeExpression:		expr?.atom?.variabilityFor
+		///	AttributeExpression:		
 		///	PowerExpression:
 		///	UnaryMinusExpression:
-			NotExpression:				normal
+			NotExpression:				expr.right ?.variabilityFor ?: normal
 			FirstExpression:			normal
 			DropExpression:				normal
 		///	ProductExpression:
@@ -150,10 +154,26 @@ class Forml0VariabilityProvider {
 			Ctl:						normal
 		}
 	}
-	
+ 	
+	def dispatch Forml0Variability variabilityFor (MyDerivative expr) {
+		var container = expr.getContainerOfType(typeof(Real))
+		if (container === null) return normal
+		if (expr.derivative && (container.variabilityFor == constant || container.variabilityFor == fixed)) return constant 
+		if (expr.integral   &&  container.variabilityFor == constant && container.valueFor == 0.0) return constant
+		normal 
+	}
+ 	
 	def dispatch Forml0Variability variabilityFor (MyRate expr) {
-		var definition = expr.getContainerOfType(typeof(Event))?.eventDefinition
-		if (definition.rate) definition.rateValue.variabilityFor else normal 
+		var container = expr?.getContainerOfType(typeof(Event))
+		if (container === null) return normal
+		var statements = container.eventDefinition.statements
+		if (statements === null) return normal
+		var int i
+		for (i=0; i < statements.size; i++) {
+			var s = statements.get(i)
+			if (s.ctl === null && s.rate) return s.rateValue.variabilityFor
+		}
+		normal
 	}
  	
 	def dispatch Forml0Variability variabilityFor (Reference expr) {
@@ -178,8 +198,23 @@ class Forml0VariabilityProvider {
 		 }
 	}
 	
+	def dispatch Forml0Variability variabilityFor (AttributeExpression expr) {
+		var v = expr.atom ?.variabilityFor ?: normal
+		if (expr.rate) {
+			switch expr.atom {
+				EventLiteral:	return normal
+				PropertyEvent:	return normal
+				default:		return v
+			}
+		} 
+		if (expr.previous) return v
+		if (expr.derivative) {if (v == constant || v == fixed)                return constant else return normal}
+		if (expr.integral)   {if (v == constant && expr.atom.valueFor == 0.0) return constant else return normal}
+		v
+	}
+ 	
 	def dispatch Forml0Variability variabilityFor (PowerExpression expr) {
-		switch expr.left.variabilityFor {
+		switch expr.left  ?.variabilityFor ?: normal {
 			case expr.left.variabilityFor == constant:	constant
 			case expr.left.variabilityFor == fixed:		fixed
 			case expr.negative:							normal
@@ -188,7 +223,7 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (UnaryMinusExpression expr) {
-		switch expr.right.variabilityFor {
+		switch expr.right ?.variabilityFor ?: normal {
 			case constant:		constant
 			case fixed:			fixed
 			case increasing:	decreasing
@@ -198,74 +233,74 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (ProductExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  										   constant   else
-		if (leftVar  == constant && rightVar == constant) 										   constant   else
-		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
-		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  					  constant   else
+		if (leftVar  == constant && rightVar == constant) 					  constant   else
+		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
+		if (leftVal  == unknown || rightVal  == unknown) 					  normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing) increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing) decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing) increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) decreasing else
 		normal
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (DivisionExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  										   normal     else
-		if (leftVar  == constant && rightVar == constant) 										   constant   else
-		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
-		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  					  normal     else
+		if (leftVar  == constant && rightVar == constant) 					  constant   else
+		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
+		if (leftVal  == unknown || rightVal  == unknown)					  normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing) increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing) decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing) increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) decreasing else
 		normal
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (IntegerDivisionExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		var leftVal  = expr.left .valueFor
 		var rightVal = expr.right.valueFor
-		if (leftVar  == constant && leftVal  == 0.0) 	  										   constant   else
-		if (rightVar == constant && rightVal == 0.0) 	  										   normal     else
-		if (leftVar  == constant && rightVar == constant) 										   constant   else
-		if (leftVar  == fixed    && rightVar == constant) 										   fixed      else
-		if (leftVar  == constant && rightVar == fixed   ) 										   fixed      else
-		if (leftVal  == Forml0ValueProvider::unknown || rightVal  == Forml0ValueProvider::unknown) normal     else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing)					   decreasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing)					   increasing else
-		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing)					   increasing else
-		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing)					   decreasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing)					   decreasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) 					   increasing else
-		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing)					   increasing else
-		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) 					   decreasing else
+		if (leftVar  == constant && leftVal  == 0.0) 	  					  constant   else
+		if (rightVar == constant && rightVal == 0.0) 	  					  normal     else
+		if (leftVar  == constant && rightVar == constant) 					  constant   else
+		if (leftVar  == fixed    && rightVar == constant) 					  fixed      else
+		if (leftVar  == constant && rightVar == fixed   ) 					  fixed      else
+		if (leftVal  == unknown || rightVal  == unknown)					  normal     else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == increasing) decreasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == increasing) increasing else
+		if (leftVar  == constant && leftVal  < 0.0 && rightVar == decreasing) increasing else
+		if (leftVar  == constant && leftVal  > 0.0 && rightVar == decreasing) decreasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == increasing) decreasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == increasing) increasing else
+		if (rightVar == constant && rightVal < 0.0 && leftVal  == decreasing) increasing else
+		if (rightVar == constant && rightVal > 0.0 && leftVal  == decreasing) decreasing else
 		normal
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (AdditionExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) 					 								 constant   else
 		if (leftVar  == fixed    && rightVar == constant) 					 								 fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) 					 								 fixed      else
@@ -277,8 +312,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (SubstractionExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) 					 								 constant   else
 		if (leftVar  == fixed    && rightVar == constant) 					 								 fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) 					 								 fixed      else
@@ -290,8 +325,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (GreaterThanExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -299,8 +334,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (GreaterOrEqualExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -308,8 +343,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (LessOrEqualExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -317,8 +352,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (LessThanExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -326,8 +361,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (EqualityExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -335,8 +370,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (DifferenceExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -344,8 +379,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (AndExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -353,8 +388,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (OrExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -362,8 +397,8 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (XorExpression expr) {
-		var leftVar  = expr.left .variabilityFor
-		var rightVar = expr.right.variabilityFor
+		var leftVar  = expr.left  ?.variabilityFor ?: normal
+		var rightVar = expr.right ?.variabilityFor ?: normal
 		if (leftVar  == constant && rightVar == constant) constant   else
 		if (leftVar  == fixed    && rightVar == constant) fixed      else
 		if (leftVar  == constant && rightVar == fixed   ) fixed      else
@@ -371,14 +406,14 @@ class Forml0VariabilityProvider {
 	}	
 	
 	def dispatch Forml0Variability variabilityFor (IfExpression expr) {
-		var condVar  = expr.condition.variabilityFor
-		var thenVar  = expr.then     .variabilityFor
-		var elseVar  = expr.^else    .variabilityFor
-		if (condVar  == constant && thenVar == constant && elseVar == constant) constant   else
-		if (   condVar  == fixed    
+		var condVar = expr.condition.expression ?.variabilityFor ?: normal
+		var thenVar = expr.then      ?.variabilityFor ?: normal
+		var elseVar = expr.^else     ?.variabilityFor ?: normal
+		if (condVar == constant && thenVar == constant && elseVar == constant) return constant
+		if (condVar == fixed    
 			&& (thenVar == constant || thenVar == fixed) 
 			&& (elseVar == constant || elseVar == fixed)
-		) fixed    else
+		) return fixed 
 		normal
 	}	
 	
@@ -391,23 +426,26 @@ class Forml0VariabilityProvider {
 	}
 	
 	def dispatch Forml0Variability variabilityFor (Boolean item) {
-		if      (item.constant) 												constant
-		else if (item.fixed) 	 												fixed
-		else if (item.booleanDefinition.global || item.booleanDefinition.value) item.booleanDefinition.globalValue.expression.variabilityFor
-		else 																	normal
+		if (item.constant)																  return constant
+		if (item.fixed) 																  return fixed
+		if (item.booleanDefinition.global && item.booleanDefinition.external)			  return normal
+		if (item.booleanDefinition.global && item.booleanDefinition.globalValue !== null) return item.booleanDefinition.globalValue.expression ?.variabilityFor ?: normal
+		normal
 	}
 	
 	def dispatch Forml0Variability variabilityFor (Integer item) {
-		if      (item.constant) 												constant
-		else if (item.fixed) 	 												fixed
-		else if (item.integerDefinition.global || item.integerDefinition.value) item.integerDefinition.globalValue.expression.variabilityFor
-		else 																	normal
+		if (item.constant)																  return constant
+		if (item.fixed)  																  return fixed
+		if (item.integerDefinition.global && item.integerDefinition.external) 			  return normal
+		if (item.integerDefinition.global && item.integerDefinition.globalValue !== null) return item.integerDefinition.globalValue.expression ?.variabilityFor ?: normal
+		normal
 	}
 	
 	def dispatch Forml0Variability variabilityFor (Real item) {
-		if      (item.constant) 										  constant
-		else if (item.fixed) 	 										  fixed
-		else if (item.realDefinition.global || item.realDefinition.value) item.realDefinition.globalValue.expression.variabilityFor
-		else 															  normal
+		if (item.constant) 															return constant
+		if (item.fixed)    															return fixed
+		if (item.realDefinition.global && item.realDefinition.external) 			return normal
+		if (item.realDefinition.global && item.realDefinition.globalValue !== null) return item.realDefinition.globalValue.expression ?.variabilityFor ?: normal
+		normal
 	}
 }	

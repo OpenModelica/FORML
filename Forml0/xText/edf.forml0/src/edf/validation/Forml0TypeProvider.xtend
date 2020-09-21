@@ -61,6 +61,7 @@ import edf.forml0.Second
 import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
+import edf.forml0.MyDerivative
 
 //=============================================================================
 //
@@ -74,6 +75,7 @@ class NumericType  implements Forml0Type {override String toString() {"Integer o
 class EventType    implements Forml0Type {override String toString() {"Event"}}
 class CtlType      implements Forml0Type {override String toString() {"Ctl"}}
 class PropertyType implements Forml0Type {override String toString() {"Property"}}
+class UnknownType  implements Forml0Type {override String toString() {"unknown"}}
 
 class Forml0TypeProvider {
 	// Types of expressions
@@ -84,6 +86,7 @@ class Forml0TypeProvider {
 	public static val eventType   = new EventType
 	public static val propertyType= new PropertyType
 	public static val ctlType     = new CtlType
+	public static val unknownType = new UnknownType
 	
 	def dispatch Forml0Type typeFor (Expression expr) {
 		switch (expr) {
@@ -94,6 +97,7 @@ class Forml0TypeProvider {
 			Tick:						integerType
 			ClockTime:					integerType
 			InPClockTime:				integerType
+			MyDerivative:				numericType
 			MyRate:						numericType
 			PropertyPfd:				numericType
 		///	BuiltInFunctionCall:		
@@ -112,9 +116,9 @@ class Forml0TypeProvider {
 		///	Reference
 		///	FunctionCall
 		
-			AttributeExpression:		if (expr.rate) numericType else expr.atom.typeFor
-			PowerExpression:			expr.left?.typeFor
-			UnaryMinusExpression:		expr.right?.typeFor
+		///	AttributeExpression:		
+			PowerExpression:			expr.left  ?. typeFor ?: unknownType
+			UnaryMinusExpression:		expr.right ?. typeFor ?: unknownType
 			NotExpression:				booleanType
 			FirstExpression:			eventType
 			DropExpression:				eventType
@@ -135,8 +139,8 @@ class Forml0TypeProvider {
 			GreaterOrEqualExpression:	booleanType
 			AndExpression:				booleanType
 			WhileExpression:			eventType
-			OrExpression:				expr.left?.typeFor
-			XorExpression:				expr.left?.typeFor
+			OrExpression:				expr.left ?. typeFor ?: unknownType
+			XorExpression:				expr.left ?. typeFor ?: unknownType
 		///	IfExpression
 			EveryExpression:			eventType
 			ChangesExpression:			eventType
@@ -168,6 +172,7 @@ class Forml0TypeProvider {
 		 	Event:	 eventType
 		 	Property:propertyType
 		 	Ctl:	 ctlType
+		 	default: unknownType
 		 }
 	}
 	
@@ -179,16 +184,16 @@ class Forml0TypeProvider {
 		 	case 'inPCount': 		integerType
 		 	case 'inPuration':  	numericType
 		 	case 'inPlockDuration':	integerType
-		 	case 'inPMax':			expr.argument?.typeFor
-		 	case 'inPMin':			expr.argument?.typeFor
-		 	case 'inTMax':			expr.argument?.typeFor
-		 	case 'inTMin':			expr.argument?.typeFor
+		 	case 'inPMax':			expr.argument ?. typeFor ?: unknownType
+		 	case 'inPMin':			expr.argument ?. typeFor ?: unknownType
+		 	case 'inTMax':			expr.argument ?. typeFor ?: unknownType
+		 	case 'inTMin':			expr.argument ?. typeFor ?: unknownType
 		 	case 'probability': 	numericType
 		 }
 	}
 	
 	def dispatch Forml0Type typeFor (FunctionCall expr) {
-		 switch  expr.function {
+		 switch  expr?.function {
 		 	Boolean: booleanType
 		 	Integer: integerType
 		 	Real: 	 numericType
@@ -196,20 +201,27 @@ class Forml0TypeProvider {
 		 }
 	}
 	
+	def dispatch Forml0Type typeFor (AttributeExpression expr) {
+		 if (expr.rate || expr.derivative || expr.integral) return numericType
+		 expr.atom ?. typeFor ?: unknownType
+	}
+	
 	def dispatch Forml0Type typeFor (AdditionExpression expr) {
-		 switch expr.left.typeFor {
+		 switch expr.left ?. typeFor ?: unknownType {
 		 	case eventType: 	eventType
-		 	case integerType:	expr.right.typeFor
-		 	case numericType:	if (expr.right.typeFor == eventType) eventType else numericType
+		 	case integerType:	expr.right ?. typeFor ?: numericType
+		 	case numericType:	if (expr.right ?. typeFor ?: unknownType == eventType) eventType else numericType
+		 	default: 			unknownType
 		 }
 	}
 	
 	def dispatch Forml0Type typeFor (IfExpression expr) {
-		 switch expr.then.typeFor {
+		 switch expr.then ?. typeFor ?: unknownType {
 		 	case eventType: 	eventType
 		 	case booleanType:	booleanType
-		 	case integerType:	expr.^else.typeFor
+		 	case integerType:	expr.^else ?. typeFor ?: numericType
 		 	case numericType:	numericType
+		 	default: 			unknownType
 		 }
 	}
 	

@@ -55,6 +55,7 @@ import edf.forml0.Second
 import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
+import edf.forml0.MyDerivative
 
 //=============================================================================
 //
@@ -84,6 +85,7 @@ class Forml0ConstraintCategoryProvider {
 			Tick:						notELSConstraint
 			ClockTime:					notELSConstraint
 			InPClockTime:				notELSConstraint
+			MyDerivative:				notELSConstraint
 			MyRate:						notELSConstraint
 			PropertyPfd:				notELSConstraint
 			BuiltInFunctionCall:		notELSConstraint

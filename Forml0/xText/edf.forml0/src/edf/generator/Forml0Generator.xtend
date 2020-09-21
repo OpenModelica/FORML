@@ -15,6 +15,97 @@ import edf.forml0.Real
 import edf.forml0.Event
 import edf.forml0.Property
 import edf.forml0.Ctl
+import edf.forml0.Parameter
+import org.eclipse.emf.common.util.EList
+import edf.forml0.BooleanDefinition
+import edf.forml0.IntegerDefinition
+import edf.forml0.RealDefinition
+import edf.forml0.EventDefinition
+import edf.forml0.CtlDefinition
+import edf.forml0.PropertyDefinition
+import edf.forml0.Expression
+import edf.forml0.BooleanStatement
+import edf.forml0.CtlExpression
+import edf.forml0.DtlExpression
+import edf.forml0.IntegerStatement
+import edf.forml0.Domain
+import edf.forml0.NumericStatement
+import edf.forml0.EventStatement
+import edf.forml0.CtlEscapeFrom
+import edf.forml0.CtlEscapeAfter
+import edf.forml0.CtlExitFrom
+import edf.forml0.CtlExitAfter
+import edf.forml0.FlatCtl
+import edf.forml0.OrCtl
+import edf.forml0.NotCtl
+import edf.forml0.CtlDelayed
+import edf.forml0.CtlExceptBool
+import edf.forml0.CtlExceptCtl
+import edf.forml0.CtlExceptEvent
+import edf.forml0.CtlExceptFirst
+import edf.forml0.CtlDuring
+import edf.forml0.Always
+import edf.forml0.During
+import edf.forml0.From
+import edf.forml0.After
+import edf.forml0.Before
+import edf.forml0.Until
+import edf.forml0.For
+import edf.forml0.Within
+import edf.forml0.FromEvery
+import edf.forml0.AfterEvery
+import edf.forml0.NumericLiteral
+import edf.forml0.Second
+import edf.forml0.Time
+import edf.forml0.inPTime
+import edf.forml0.Tick
+import edf.forml0.ClockTime
+import edf.forml0.InPClockTime
+import edf.forml0.MyDerivative
+import edf.forml0.MyRate
+import edf.forml0.PropertyPfd
+import edf.forml0.BuiltInFunctionCall
+import edf.forml0.BooleanLiteral
+import edf.forml0.PropertyState
+import edf.forml0.BooleanFromCtl
+import edf.forml0.MyValue
+import edf.forml0.EventLiteral
+import edf.forml0.PropertyEvent
+import edf.forml0.MyClock
+import edf.forml0.Clock
+import edf.forml0.Reference
+import edf.forml0.FunctionCall
+import edf.forml0.AttributeExpression
+import edf.forml0.PowerExpression
+import edf.forml0.UnaryMinusExpression
+import edf.forml0.NotExpression
+import edf.forml0.FirstExpression
+import edf.forml0.DropExpression
+import edf.forml0.ProductExpression
+import edf.forml0.DivisionExpression
+import edf.forml0.IntegerDivisionExpression
+import edf.forml0.AdditionExpression
+import edf.forml0.SubstractionExpression
+import edf.forml0.WithoutExpression
+import edf.forml0.FollowingExpression
+import edf.forml0.EqualityExpression
+import edf.forml0.DifferenceExpression
+import edf.forml0.LessThanExpression
+import edf.forml0.LessOrEqualExpression
+import edf.forml0.GreaterThanExpression
+import edf.forml0.GreaterOrEqualExpression
+import edf.forml0.AndExpression
+import edf.forml0.WhileExpression
+import edf.forml0.OrExpression
+import edf.forml0.XorExpression
+import edf.forml0.IfExpression
+import edf.forml0.EveryExpression
+import edf.forml0.ChangesExpression
+import edf.forml0.BecomesExpression
+import edf.forml0.LeavesExpression
+import edf.forml0.IntegerInterval
+import edf.forml0.NumericInterval
+import edf.forml0.Interval
 
 /**
  * Generates code from your model files on save.
@@ -29,48 +120,317 @@ class Forml0Generator extends AbstractGenerator {
 		]
 	}
  
-	def generateModel (Model model) {
+ 	def CharSequence generateModel (Model model) {
 		'''
 		«FOR item : model.items»
-		«IF item.^boolean !== null»«item.^boolean.textFor» ; «ENDIF»
-		«IF item.integer  !== null»«item.integer .textFor» ; «ENDIF»
-		«IF item.real     !== null»«item.real    .textFor» ; «ENDIF»
-		«IF item.event    !== null»«item.event   .textFor» ; «ENDIF»
-		«IF item.property !== null»«item.property.textFor» ; «ENDIF»
-		«IF item.ctl      !== null»«item.ctl     .textFor» ; «ENDIF»
+		«IF item.^boolean !== null»«item.^boolean.forml0For» ; «ENDIF»
+		«IF item.integer  !== null»«item.integer .forml0For» ; «ENDIF»
+		«IF item.real     !== null»«item.real    .forml0For» ; «ENDIF»
+		«IF item.event    !== null»«item.event   .forml0For» ; «ENDIF»
+		«IF item.property !== null»«item.property.forml0For» ; «ENDIF»
+		«IF item.ctl      !== null»«item.ctl     .forml0For» ; «ENDIF»
 		«ENDFOR»
 		'''
 	}
 
  
-	def dispatch textFor (Boolean item) {
-		'''Boolean : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Boolean item) {
+		'''«IF item.constant»constant «ENDIF»«IF item.fixed»fixed «ENDIF»Boolean «item.name» «textFor(item.parameters)»«item.booleanDefinition?.forml0For»'''
 	}
 	
-	def dispatch textFor (Integer item) {
-		'''Integer : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Integer item) {
+		'''«IF item.constant»constant «ENDIF»«IF item.fixed»fixed «ENDIF»Integer «item.name» «textFor(item.parameters)»«item.integerDefinition?.forml0For»'''
 	}
 	
-	def dispatch textFor (Real item) {
-		'''Real : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Real item) {
+		'''«IF item.constant»constant «ENDIF»«IF item.fixed»fixed «ENDIF»Real «item.name» «textFor(item.parameters)»«item.realDefinition?.forml0For»'''
 	}
 	
-	def dispatch textFor (Event item) {
-		'''Event : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Event item) {
+		'''Event «item.name» «textFor(item.parameters)»«item.eventDefinition?.forml0For»'''
 	}
 	
-	def dispatch textFor (Property item) {
-		'''Property : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Property item) {
+		'''«item.type» «item.name» «item.propertyDefinition?.forml0For»'''
 	}
 	
-	def dispatch textFor (Ctl item) {
-		'''Ctl : «item.type» «item.name» ;
-		'''
+	def dispatch CharSequence forml0For (Ctl item) {
+		'''Ctl «item.name» «item.ctlDefinition?.forml0For»'''
+	}
+	
+	def CharSequence textFor (EList<Parameter> parameters) {
+		if (parameters !== null)
+			'''«FOR p : parameters BEFORE '(' SEPARATOR ', ' AFTER ') '»«p.forml0For»«ENDFOR»'''
+	}
+	
+	def dispatch CharSequence forml0For (Parameter parameter) {
+		'''«IF parameter.constant»constant «ENDIF»«IF parameter.fixed»fixed «ENDIF»«parameter.type»'''
+	}
+	
+	def dispatch CharSequence forml0For (BooleanDefinition d) {
+		if (d.global && d.external) return 'is external'
+		if (d.global) 				return 'is ' + d.globalValue.expression.forml0For
+'''begin
+  «IF d.clock»
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «FOR s : d.statements»
+  «s.forml0For» ;
+  «ENDFOR»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (IntegerDefinition d) {
+		if (d.global && d.external) return 'is external'
+		if (d.global) 				return 'is ' + d.globalValue.expression.forml0For
+'''begin
+  «IF d.clock»  
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «FOR s : d.statements» 
+  «s.forml0For» ;
+  «ENDFOR»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (RealDefinition d) {
+		if (d.global && d.external) return 'is external'
+		if (d.global) 				return 'is ' + d.globalValue.expression.forml0For
+'''begin
+  «IF d.clock»  
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «FOR s : d.statements» 
+  «s.forml0For» ;
+  «ENDFOR»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (EventDefinition d) {
+		if (d.global && d.external) return 'is external'
+		if (d.global) 				return 'is ' + d.globalValue.expression.forml0For
+'''begin
+  «IF d.clock»  
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «FOR s : d.statements» 
+  «s.forml0For» ;
+  «ENDFOR»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (PropertyDefinition d) {
+		var ctlText = if (d.timeLocator?.ctl !== null) d.timeLocator.ctl.forml0For + ' define ' else ''
+		var dtlText = if (d.timeLocator?.dtl !== null) d.timeLocator.dtl.forml0For + ' define ' else ''
+		var ctrText = 
+			(if (d.can) 'can ' else '') + 
+			(if (d.achieve) 'achieve ' else '') + (if (d.atClosing) 'at closing ' else '') +
+			(if (d.ensure) 'ensure ' else '') + 
+			d.constraint.expression.forml0For
+		if (!d.block) return ctlText + dtlText + ctrText
+'''begin
+  «IF d.clock»  
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «ctlText»«dtlText» «ctrText»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (CtlDefinition d) {
+		if (!d.block) return 'is ' + d.ctl.forml0For
+'''begin
+  «IF d.clock»  
+  clock is «d.clockValue.expression.forml0For» ;
+  «ENDIF»
+  «d.ctl.forml0For»
+end'''
+	}
+	
+	def dispatch CharSequence forml0For (BooleanStatement s) {
+		var ctlText  = if (s.ctl !== null) s.ctl.forml0For + ' define ' else ''
+		var dtlText  = if (s.dtl !== null) s.dtl.forml0For + ' define ' else ''
+		var asgnText = if (s.attribute !== null) s.attribute + ' is ' + s.value.expression.forml0For else ''
+		var rateText = if (s.rate) 'rate is' + s.rateValue.expression.forml0For else ''
+		var dscrText = if (s.discrete) 'discreteRate is' + s.discreteRateValue.expression.forml0For else ''
+		var becmText = if (s.becomes) '(value becomes ' + s.target + ').' + rateText + dscrText else ''
+		var chngText = if (s.changes) '(value changes).' + rateText + dscrText else ''
+		'''«ctlText»«dtlText»«asgnText»«becmText»«chngText»'''
+	}
+	
+	def dispatch CharSequence forml0For (IntegerStatement s) {
+		var ctlText  = if (s.ctl !== null) s.ctl.forml0For + ' define ' else ''
+		var dtlText  = if (s.dtl !== null) s.dtl.forml0For + ' define ' else ''
+		var asgnText = if (s.attribute !== null) s.attribute + ' is ' + s.value.expression.forml0For else ''
+		var rateText = if (s.rate) 'rate is' + s.rateValue.expression.forml0For else ''
+		var dscrText = if (s.discrete) 'discreteRate is' + s.discreteRateValue.expression.forml0For else ''
+		var becmText = if (!s.leaves && s.becomes) '(value becomes ' + s.target.forml0For + ').' + rateText + dscrText else ''
+		var leavText = if (s.leaves && !s.becomes) '(value leaves '  + s.origin.forml0For + ').' + rateText + dscrText else ''
+		var bclvText = if (s.leaves &&  s.becomes) '(value leaves '  + s.origin.forml0For + ' becomes ' + s.target.forml0For + ').' + rateText + dscrText else ''
+		var chngText = if (s.changes) '(value changes).' + rateText + dscrText else ''
+		'''«ctlText»«dtlText»«asgnText»«becmText»«leavText»«bclvText»«chngText»'''
+	}
+	
+	def dispatch CharSequence forml0For (NumericStatement s) {
+		var ctlText  = if (s.ctl !== null) s.ctl.forml0For + ' define ' else ''
+		var dtlText  = if (s.dtl !== null) s.dtl.forml0For + ' define ' else ''
+		var asgnText = if (s.attribute !== null) s.attribute + ' is ' + s.value.expression.forml0For else ''
+		var rankText = if (s.derivative && s.ranked) '(' + s.rank +')' else ''
+		var drvtText = if (s.derivative) 'derivative' + rankText + ' is ' + s.value.expression.forml0For else ''
+		var rateText = if (s.rate) 'rate is' + s.rateValue.expression.forml0For else ''
+		var dscrText = if (s.discrete) 'discreteRate is' + s.discreteRateValue.expression.forml0For else ''
+		var becmText = if (!s.leaves && s.becomes) '(value becomes ' + s.target.forml0For + ').' + rateText + dscrText else ''
+		var leavText = if (s.leaves && !s.becomes) '(value leaves '  + s.origin.forml0For + ').' + rateText + dscrText else ''
+		var bclvText = if (s.leaves &&  s.becomes) '(value leaves '  + s.origin.forml0For + ' becomes ' + s.target.forml0For + ').' + rateText + dscrText else ''
+		var chngText = if (s.changes) '(value changes).' + rateText + dscrText else ''
+		'''«ctlText»«dtlText»«asgnText»«drvtText»«becmText»«leavText»«bclvText»«chngText»'''
+	}
+	
+	def dispatch CharSequence forml0For (EventStatement s) {
+		var ctlText  = if (s.ctl !== null) s.ctl.forml0For + ' define ' else ''
+		var dtlText  = if (s.dtl !== null) s.dtl.forml0For + ' define ' else ''
+		var asgnText = if (s.occurrence) ' occurrence is ' + s.value.expression.forml0For else ''
+		var rateText = if (s.rate) 'rate is' + s.rateValue.expression.forml0For else ''
+		var dscrText = if (s.discrete) 'discreteRate is' + s.discreteRateValue.expression.forml0For else ''
+		'''«ctlText»«dtlText»«asgnText»«rateText»«dscrText»'''
+	}
+	
+	def dispatch CharSequence forml0For (CtlExpression c) {
+		switch c {
+			CtlEscapeFrom:	return '(' + c.left.forml0For + 'escape from '  + c.right.expression.forml0For	  + ')'
+			CtlEscapeAfter:	return '(' + c.left.forml0For + 'escape after ' + c.right.expression.forml0For	  + ')'
+			CtlExitFrom:	return '(' + c.left.forml0For + 'exit from '    + c.right.expression.forml0For	  + ')'
+			CtlExitAfter:	return '(' + c.left.forml0For + 'exit after '   + c.right.expression.forml0For	  + ')'
+			FlatCtl:		return '(' + 					'flat '  		+ c.ctl.forml0For				  + ')'
+			OrCtl:			return '(' + c.left.forml0For + 'also '  		+ c.right.forml0For				  + ')'
+			NotCtl:			return '(' +					'except '       + c.ctl.forml0For				  + ')'
+			CtlDelayed:		return '(' + c.left.forml0For + 'delayed '      + c.right.expression.forml0For	  + ')'
+			CtlExceptBool:	return '(' + c.left.forml0For + 'except during '+ c.right.expression.forml0For	  + ')'
+			CtlExceptCtl:	return '(' + c.left.forml0For + 'except '       + c.right.forml0For				  + ')'
+			CtlExceptEvent:	return '(' + c.left.forml0For + 'except when '  + c.right.expression.forml0For	  + ')'
+			CtlExceptFirst:	return '(' + c.left.forml0For + 'except first ' + c.right.expression.forml0For	  + ')'
+			CtlDuring:		return '(' + c.left.forml0For + 'during '       + c.right.expression.forml0For	  + ')'
+			Always:			return 							'always'
+			During:			return '(' +					'during '       + c.condition.forml0For			  + ')'		
+		///	From:
+		///	After:
+			Before:			return '(' +					'before '	    + c.eop.expression.forml0For	  + ')'
+			Until:			return '(' +					'until '	    + c.eop.expression.forml0For	  + ')'
+			For:			return '(' +					'for '	     	+ c.duration.expression.forml0For + ')'
+			Within:			return '(' +					'within '	    + c.duration.expression.forml0For + ')'
+		///	FromEvery:
+		///	AfterEvery:
+		}
+	}
+	
+	def dispatch CharSequence forml0For (From c) {
+		var bop = if (c.bop !== null)      'from ' 								   + c.bop.expression     .forml0For else ''
+		var eop = if (c.eop !== null)      (if (c.before) 'before ' else 'until ') + c.eop.expression     .forml0For else ''
+		var dur = if (c.duration !== null) (if (c.within) 'within ' else 'for ')   + c.duration.expression.forml0For else ''
+		'(' + bop + eop + dur + ')'
+	}
+	
+	def dispatch CharSequence forml0For (After c) {
+		var bop = if (c.bop !== null)      'after ' 							   + c.bop.expression     .forml0For else ''
+		var eop = if (c.eop !== null)      (if (c.before) 'before ' else 'until ') + c.eop.expression     .forml0For else ''
+		var dur = if (c.duration !== null) (if (c.within) 'within ' else 'for ')   + c.duration.expression.forml0For else ''
+		'(' + bop + eop + dur + ')'
+	}
+	
+	def dispatch CharSequence forml0For (FromEvery c) {
+		var bop = if (c.duration1 !== null)  'from every ' + c.duration1.expression.forml0For else ''
+		var dur = if (c.duration2 !== null) (if (c.within) 'within ' else 'for ')   + c.duration2.expression.forml0For else ''
+		'(' + bop + dur + ')'
+	}
+	
+	def dispatch CharSequence forml0For (AfterEvery c) {
+		var bop = if (c.duration1 !== null)  'after every ' + c.duration1.expression.forml0For else ''
+		var dur = if (c.duration2 !== null) (if (c.within) 'within ' else 'for ')   + c.duration2.expression.forml0For else ''
+		'(' + bop + dur + ')'
+	}
+	
+	def dispatch CharSequence forml0For (DtlExpression d) {
+		'(' + (if (d.when) 'when ' else '') + d.value.expression.forml0For + ')'
+	}
+	
+	def dispatch CharSequence forml0For (Domain d) {
+		if (d.value     !== null) return d.value.forml0For
+		if (d.interval  !== null) return d.interval.forml0For 
+		if (d.intervals !== null) return '''«FOR i : d.intervals BEFORE '{' SEPARATOR ', ' AFTER '}'»«i.forml0For»«ENDFOR»'''
+	}
+	
+	def dispatch CharSequence forml0For (Interval i) {
+		switch i {
+			NumericInterval:	return (if (i.bb) '[' else ']') + i.lb.expression.forml0For + ', ' + i.ub.expression.forml0For + (if (i.eb) ']' else '[')
+			IntegerInterval:	return (if (i.negativeLb) '-' else '') + i.intLb + '..' + (if (i.negativeUb) '-' else '') + i.intUb
+		}
+	}
+	
+	
+	
+	def dispatch CharSequence forml0For (Expression e) {
+		switch (e) {
+			NumericLiteral:				(e.value.integerValue.toString) 		+ 
+										(e.value.decimalValue ?. toString ?: '')  + 
+										(if (e.value.decimalPoint) '.' else '')	+
+										(e.value.exponent ?. toString ?: '')
+			Second:						's'
+			Time:						'time'
+			inPTime:					'inPTime'
+			Tick:						'tick'
+			ClockTime:					'clockTime'
+			InPClockTime:				'inPClockTime'
+			MyDerivative:				(if (e.derivative) 'derivative' else '') + (if (e.integral) 'integral' else '') + (if (e.ranked) '(' + e.rank +')' else '')
+			MyRate:						'rate'
+			PropertyPfd:				e.identifier.name + '.pfd'
+			BuiltInFunctionCall:		e.function + ' (' + e.argument.forml0For + ')'
+			
+			BooleanLiteral:				e.value
+			PropertyState:				e.identifier.name + '.' + e.state
+			BooleanFromCtl:				'boolean (' + e.ctl.forml0For + ')'
+			
+			MyValue:					e.attribute
+		
+			EventLiteral:				't0'
+			PropertyEvent:				e.identifier.name + '.' + e.event
+			MyClock:					'clock'
+			Clock:						e.identifier.name + '.clock'
+			
+			Reference:					e.identifier.name
+			FunctionCall:				'''«e.function.name» «FOR a : e.arguments BEFORE '(' SEPARATOR ', ' AFTER ')'»«a.forml0For»«ENDFOR»'''
+		
+			AttributeExpression:		e.atom.forml0For +
+										(if (e.rate) '.rate' else '') +
+										(if (e.previous) '.previous' else '') +
+										(if (e.derivative) 'derivative' else '') + (if (e.integral) 'integral' else '') + (if (e.ranked) '(' + e.rank +')' else '')
+			PowerExpression:			'(' + e.left.forml0For + '^' + (if (e.negative) '-' else '') + e.right + ')'
+			UnaryMinusExpression:		'(-'    + e.right.forml0For + ')'
+			NotExpression:				'(not ' + e.right.forml0For + ')'
+			FirstExpression:			'(first '      + (if (e.n) '(' + e.left + ') ' else '') + e.right.forml0For + ')'
+			DropExpression:				'(drop first ' + (if (e.n) '(' + e.left + ') ' else '') + e.right.forml0For + ')'
+			ProductExpression:			'(' + e.left.forml0For + ' * '			+ e.right.forml0For + ')'
+			DivisionExpression:			'(' + e.left.forml0For + ' / '			+ e.right.forml0For + ')'
+			IntegerDivisionExpression:	'(' + e.left.forml0For + ' \\ '			+ e.right.forml0For + ')'
+			AdditionExpression:			'(' + e.left.forml0For + ' + '			+ e.right.forml0For + ')'
+			SubstractionExpression:		'(' + e.left.forml0For + ' - '  		+ e.right.forml0For + ')'
+			WithoutExpression:			'(' + e.left.forml0For + ' without '	+ e.right.forml0For + ')'
+			FollowingExpression:		'(' + e.left.forml0For + ' following '	+ e.right.forml0For + ')'
+			EqualityExpression:			'(' + e.left.forml0For + ' = '		  	+ e.right.forml0For + ')'
+			DifferenceExpression:		'(' + e.left.forml0For + ' <> '			+ e.right.forml0For + ')'
+			LessThanExpression:			'(' + e.left.forml0For + ' < '			+ e.right.forml0For + ')'
+			LessOrEqualExpression:		'(' + e.left.forml0For + ' <= '			+ e.right.forml0For + ')'
+			GreaterThanExpression:		'(' + e.left.forml0For + ' > '		  	+ e.right.forml0For + ')'
+			GreaterOrEqualExpression:	'(' + e.left.forml0For + ' >= '			+ e.right.forml0For + ')'
+			AndExpression:				'(' + e.left.forml0For + ' and '		+ e.right.forml0For + ')'
+			WhileExpression:			'(' + e.left.forml0For + ' while '		+ e.right.forml0For + ')'
+			OrExpression:				'(' + e.left.forml0For + ' or '			+ e.right.forml0For + ')'
+			XorExpression:				'(' + e.left.forml0For + ' xor '		+ e.right.forml0For + ')'
+			IfExpression:				'(' + 'if ' + e.condition.expression.forml0For + ' then ' + e.then.forml0For + ' else ' + e.^else.forml0For + ')'
+			EveryExpression:			'(at every ' + e.duration.expression.forml0For + ')'
+			ChangesExpression:			'(' + e.expression.forml0For + ' changes)'
+			BecomesExpression:			'(' + e.expression.forml0For + ' becomes ' + e.target.forml0For + ')'
+			LeavesExpression:			'(' + e.expression.forml0For + ' leaves '  + e.origin.forml0For + (if (e.becomes) ' becomes ' + e.target.forml0For else '') + ')'
+		}
+
 	}
 	
 }

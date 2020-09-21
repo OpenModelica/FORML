@@ -52,6 +52,7 @@ import edf.forml0.Second
 import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
+import edf.forml0.MyDerivative
 
 //=============================================================================
 //
@@ -101,6 +102,7 @@ class Forml0QuantityProvider {
 			Tick:						tick
 			ClockTime:					tick
 			InPClockTime:				tick
+		///	MyDerivative:				
 			MyRate:						rate
 			PropertyPfd:				scalar
 		///	BuiltInFunctionCall:		
@@ -118,17 +120,17 @@ class Forml0QuantityProvider {
 			Reference:					scalar
 			FunctionCall:				scalar
 		
-			AttributeExpression:		if (expr.rate) rate else expr.atom.quantityFor 
+		///	AttributeExpression:		 
 		///	PowerExpression:			
-			UnaryMinusExpression:		expr.right.quantityFor
+			UnaryMinusExpression:		expr.right ?. quantityFor ?: scalar
 			NotExpression:				scalar
 			FirstExpression:			scalar
 			DropExpression:				scalar
 		///	ProductExpression:			
 		///	DivisionExpression:			
 		///	IntegerDivisionExpression:	
-			AdditionExpression:			expr.left.quantityFor
-			SubstractionExpression:		expr.left.quantityFor
+			AdditionExpression:			expr.left ?. quantityFor ?: scalar
+			SubstractionExpression:		expr.left ?. quantityFor ?: scalar
 			WithoutExpression:			scalar
 			FollowingExpression:		scalar
 			EqualityExpression:			scalar
@@ -141,13 +143,21 @@ class Forml0QuantityProvider {
 			WhileExpression:			scalar
 			OrExpression:				scalar			
 			XorExpression:				scalar			
-			IfExpression:				expr.then.quantityFor
+			IfExpression:				expr.then ?. quantityFor ?: scalar
 			EveryExpression:			scalar
 			ChangesExpression:			scalar
 			BecomesExpression:			scalar
 			LeavesExpression:			scalar
 
 		}
+	}
+
+	def dispatch Forml0Quantity quantityFor (MyDerivative expr) {
+		if (expr.derivative && !expr.ranked) return rate
+		if (expr.derivative &&  expr.ranked) return new Forml0Quantity (-expr.rank, 0)
+		if (expr.integral   && !expr.ranked) return time
+		if (expr.integral   &&  expr.ranked) return new Forml0Quantity ( expr.rank, 0)
+		scalar
 	}
 
 	def dispatch Forml0Quantity quantityFor (BuiltInFunctionCall expr) {
@@ -163,29 +173,40 @@ class Forml0QuantityProvider {
 		 	case 'inTMax':			expr.argument?.quantityFor
 		 	case 'inTMin':			expr.argument?.quantityFor
 		 	case 'probability': 	scalar
+		 	default:				scalar
 		 }
 	}
 	
+	def dispatch Forml0Quantity quantityFor (AttributeExpression expr) {
+		if (expr.rate) 						 return rate
+		if (expr.previous) 					 return expr.atom.quantityFor
+		if (expr.derivative && !expr.ranked) return rate
+		if (expr.derivative &&  expr.ranked) return new Forml0Quantity (-expr.rank, 0)
+		if (expr.integral   && !expr.ranked) return time
+		if (expr.integral   &&  expr.ranked) return new Forml0Quantity ( expr.rank, 0)
+		expr.atom.quantityFor
+	}
+
 	def dispatch Forml0Quantity quantityFor (PowerExpression expr) {
-		var left = expr.left.quantityFor
+		var left = expr.left ?. quantityFor ?: scalar
 		new Forml0Quantity (left.time * (expr.negative ? -expr.right : expr.right), left.ticks * (expr.negative ? -expr.right : expr.right))
 	}
 
 	def dispatch Forml0Quantity quantityFor (ProductExpression expr) {
-		var left  = expr.left .quantityFor
-		var right = expr.right.quantityFor
+		var left  = expr.left  ?. quantityFor ?: scalar
+		var right = expr.right ?. quantityFor ?: scalar
 		new Forml0Quantity (left.time + right.time, left.ticks + right.ticks)
 	}
 
 	def dispatch Forml0Quantity quantityFor (DivisionExpression expr) {
-		var left  = expr.left .quantityFor
-		var right = expr.right.quantityFor
+		var left  = expr.left  ?. quantityFor ?: scalar
+		var right = expr.right ?. quantityFor ?: scalar
 		new Forml0Quantity (left.time - right.time, left.ticks - right.ticks)
 	}
 
 	def dispatch Forml0Quantity quantityFor (IntegerDivisionExpression expr) {
-		var left  = expr.left .quantityFor
-		var right = expr.right.quantityFor
+		var left  = expr.left  ?. quantityFor ?: scalar
+		var right = expr.right ?. quantityFor ?: scalar
 		new Forml0Quantity (left.time - right.time, left.ticks - right.ticks)
 	}
 	

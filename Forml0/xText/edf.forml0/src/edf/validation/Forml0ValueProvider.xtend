@@ -10,6 +10,7 @@ import edf.forml0.Expression
 import edf.forml0.Integer
 import edf.forml0.IntegerDivisionExpression
 import edf.forml0.Item
+import edf.forml0.LessThanExpression
 import edf.forml0.NumericLiteral
 import edf.forml0.PowerExpression
 import edf.forml0.ProductExpression
@@ -23,6 +24,19 @@ import edf.forml0.MyRate
 import edf.forml0.Event
 
 import static extension org.eclipse.xtext.EcoreUtil2.*
+import edf.forml0.LessOrEqualExpression
+import edf.forml0.GreaterThanExpression
+import edf.forml0.GreaterOrEqualExpression
+import edf.forml0.EqualityExpression
+import edf.forml0.DifferenceExpression
+import edf.forml0.AndExpression
+import edf.forml0.OrExpression
+import edf.forml0.XorExpression
+import edf.forml0.NotExpression
+import edf.forml0.MyDerivative
+import com.google.inject.Inject
+import edf.forml0.EventLiteral
+import edf.forml0.PropertyEvent
 
 //=============================================================================
 //
@@ -33,23 +47,47 @@ import static extension org.eclipse.xtext.EcoreUtil2.*
 //=============================================================================
 class Forml0ValueProvider {
 	public static val unknown = 1.836168313179e17
+	public static val isTrue = 1.3548632223877e29
+	public static val isFalse = -1.94352698431772e-15
+	static val constant = Forml0VariabilityProvider::constant
+	static val fixed    = Forml0VariabilityProvider::fixed
 	
+	@Inject extension Forml0VariabilityProvider
 	def dispatch double valueFor (Expression expr) {
 		switch (expr) {
 			Second:						1.0
 			Tick:						1.0
 			UnaryMinusExpression:		if (expr.right.valueFor == unknown) 																unknown									
-										else 																								- expr.right.valueFor
+											else if (expr.right.valueFor == isFalse) isTrue else isFalse
+			NotExpression:				if (expr.right.valueFor == unknown) 																unknown									
+											else 																							- expr.right.valueFor
 			ProductExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
-										else 																								expr.left.valueFor * expr.right.valueFor
+											else 																							expr.left.valueFor * expr.right.valueFor
 			DivisionExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown || expr.right.valueFor == 0.0)	unknown 
-										else 																								expr.left.valueFor / expr.right.valueFor
+											else 																							expr.left.valueFor / expr.right.valueFor
 			IntegerDivisionExpression:	if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown || expr.right.valueFor == 0.0)	unknown 
-										else 																								((expr.left.valueFor / expr.right.valueFor) as long) as double
+											else 																							((expr.left.valueFor / expr.right.valueFor) as long) as double
 			AdditionExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
-										else 																								expr.left.valueFor + expr.right.valueFor
+											else 																							expr.left.valueFor + expr.right.valueFor
 			SubstractionExpression:		if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
-										else 																								expr.left.valueFor - expr.right.valueFor
+											else 																							expr.left.valueFor - expr.right.valueFor
+			LessThanExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor <  expr.right.valueFor) isTrue else isFalse
+			LessOrEqualExpression:		if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor <= expr.right.valueFor) isTrue else isFalse	
+			GreaterThanExpression:		if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor >  expr.right.valueFor) isTrue else isFalse
+			GreaterOrEqualExpression:	if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor >= expr.right.valueFor) isTrue else isFalse
+			EqualityExpression:			if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor == expr.right.valueFor) isTrue else isFalse	
+			DifferenceExpression:		if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor != expr.right.valueFor) isTrue else isFalse
+			AndExpression:				if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if (expr.left.valueFor == isTrue && expr.right.valueFor == isTrue) isTrue else isFalse
+			OrExpression:				if (expr.left.valueFor  == isTrue || expr.right.valueFor == isTrue)	isTrue else isFalse
+			XorExpression:				if (expr.left.valueFor  == unknown || expr.right.valueFor == unknown)								unknown 
+											else if ((expr.left.valueFor == isTrue) != (expr.right.valueFor == isTrue)) isTrue else isFalse
 			default:					unknown
 		}
 	}
@@ -58,32 +96,59 @@ class Forml0ValueProvider {
 		(expr.value.integerValue + Double.parseDouble (expr.value.decimalValue)) * Double.parseDouble ("1." + expr.value.exponent)
 	}
 	
+	def dispatch double valueFor (MyDerivative expr) {
+		var container = expr?.getContainerOfType(typeof(Real))
+		if (container === null) return unknown
+		if (expr.derivative && (container.variabilityFor == constant || container.variabilityFor == fixed)) return 0.0
+		if (expr.integral && container.variabilityFor == constant && container.valueFor == 0.0) return 0.0
+		unknown
+	}
+	
 	def dispatch double valueFor (MyRate expr) {
 		var container = expr?.getContainerOfType(typeof(Event))
-		if (container === null) 				 unknown
-		else if (container.eventDefinition.rate) container.eventDefinition.rateValue.expression.valueFor
-		else    								 unknown
+		if (container === null) return unknown
+		var statements = container.eventDefinition.statements
+		if (statements === null) return unknown
+		var int i
+		for (i=0; i < statements.size; i++) {
+			var s = statements.get(i)
+			if (s.ctl === null && s.rate) return s.rateValue.valueFor
+		}
+		unknown
 	}
 	
 	def dispatch double valueFor (AttributeExpression expr) {
+		var atom = expr.atom
+		if (atom === null) return unknown
 		// If attribute is previous, value is expr.atom, which must be constant for value to have a meaning
-		if (expr.previous) expr.atom.valueFor
+		if (expr.previous) return atom.valueFor
+		if (expr.derivative && (atom.variabilityFor == constant || atom.variabilityFor == fixed)) return 0.0
+		if (expr.integral && atom.variabilityFor == constant && atom.valueFor == 0.0) return 0.0
 		// If attribute is rate, expr.atom must be an event expression
 		// Value is unknown except when expr.atom refers to a named event defined by a global rate
-		else if (expr.rate) {
-			var atom = expr.atom
-			if (atom instanceof Event) {
-				if (atom.eventDefinition.rate) atom.eventDefinition.rateValue.expression.valueFor else unknown
-			} else unknown
-		} else unknown
+		if (expr.rate) switch atom {
+			EventLiteral:	return unknown
+			PropertyEvent:	return unknown
+			Reference:		if (atom instanceof Event) {
+				var statements = atom.eventDefinition.statements
+				if (statements === null) return unknown
+				var int i
+				for (i=0; i < statements.size; i++) {
+					var s = statements.get(i)
+					if (s.ctl === null && s.rate) return s.rateValue.valueFor
+				}
+			}
+			default:		return atom.valueFor
+		}
+		unknown
 	}
 	
 	def dispatch double valueFor (Reference expr) {
 		var container = expr?.getContainerOfType(typeof(Item))
-		if      (expr?.identifier?.name === null) 		 unknown
-		else if (container === null) 					 unknown
-		else if (container.name == expr.identifier.name) unknown 
-		else    										 expr.identifier.valueFor
+		if (container === null) 					return unknown
+		if (expr?.identifier?.name === null) 		return unknown
+		if (container.name == expr.identifier.name) return unknown 
+		expr.identifier.valueFor
 	}
  	
 	def dispatch double valueFor (PowerExpression expr) {
@@ -98,13 +163,13 @@ class Forml0ValueProvider {
 		switch item {
 			Integer: {
 				var definition = item.integerDefinition
-				if (item.constant && (definition.global || definition.value) && ! definition.external) 
+				if (item.constant && definition.global && ! definition.external) 
 					definition.globalValue.expression.valueFor
 					else unknown
 			}
 			Real: {
 				var definition = item.realDefinition
-				if (item.constant && (definition.global || definition.value) && ! definition.external) 
+				if (item.constant && definition.global && ! definition.external) 
 					definition.globalValue.expression.valueFor
 					else unknown
 			}	
