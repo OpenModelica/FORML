@@ -53,6 +53,7 @@ import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
 import edf.forml0.MyDerivative
+import edf.forml0.InIntervalExpression
 
 //=============================================================================
 //
@@ -139,6 +140,7 @@ class Forml0QuantityProvider {
 			LessOrEqualExpression:		scalar
 			GreaterThanExpression:		scalar
 			GreaterOrEqualExpression:	scalar
+			InIntervalExpression:		scalar
 			AndExpression:				scalar
 			WhileExpression:			scalar
 			OrExpression:				scalar			

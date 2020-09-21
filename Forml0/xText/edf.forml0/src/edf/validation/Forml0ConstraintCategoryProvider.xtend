@@ -56,6 +56,12 @@ import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
 import edf.forml0.MyDerivative
+import edf.forml0.InIntervalExpression
+import edf.forml0.Intervals
+import edf.forml0.NumericInterval
+import edf.forml0.IntegerInterval
+import edf.forml0.Interval
+import edf.forml0.ValueOrInterval
 
 //=============================================================================
 //
@@ -73,6 +79,12 @@ class Forml0ConstraintCategoryProvider {
 	public static val esConstraint   = new esConstraint
 	public static val lsConstraint   = new lsConstraint
 	public static val notELSConstraint = new notELSConstraint
+	
+	static val constant = Forml0VariabilityProvider::constant
+	static val fixed    = Forml0VariabilityProvider::fixed
+	static val increasing    = Forml0VariabilityProvider::increasing
+	static val decreasing    = Forml0VariabilityProvider::decreasing
+	
 	
 	@Inject extension Forml0VariabilityProvider
 	
@@ -116,16 +128,17 @@ class Forml0ConstraintCategoryProvider {
 			SubstractionExpression:		notELSConstraint
 			WithoutExpression:			notELSConstraint
 			FollowingExpression:		notELSConstraint
-		///	EqualityExpression:			1.0
-		///	DifferenceExpression:		1.0
-		///	LessThanExpression:			1.0
-		///	LessOrEqualExpression:		1.0
-		///	GreaterThanExpression:		1.0
-		///	GreaterOrEqualExpression:	1.0
-		///	AndExpression:				1.0
+		///	EqualityExpression:			
+		///	DifferenceExpression:		
+		///	LessThanExpression:			
+		///	LessOrEqualExpression:		
+		///	GreaterThanExpression:		
+		///	GreaterOrEqualExpression:	
+		///	InIntervalExpression:		
+		///	AndExpression:				
 			WhileExpression:			notELSConstraint
-		///	OrExpression:				1.0			
-		///	XorExpression:				1.0			
+		///	OrExpression:							
+		///	XorExpression:							
 			IfExpression:				notELSConstraint
 			EveryExpression:			notELSConstraint
 			ChangesExpression:			notELSConstraint
@@ -168,6 +181,12 @@ class Forml0ConstraintCategoryProvider {
 		else notELSConstraint
 	}	
 	
+	def dispatch Forml0ConstraintCategory constraintCategoryFor (InIntervalExpression expr) {
+		if      (isIncreasing (expr.left.variabilityFor) && expr.right.fixedIntervals) esConstraint
+		else if	(isDecreasing (expr.left.variabilityFor) && expr.right.fixedIntervals) esConstraint 
+		else notELSConstraint
+	}	
+	
 	def dispatch Forml0ConstraintCategory constraintCategoryFor (NotExpression expr) {
 		if      (expr.right.constraintCategoryFor == esConstraint) lsConstraint
 		else if	(expr.right.constraintCategoryFor == lsConstraint) esConstraint 
@@ -199,15 +218,40 @@ class Forml0ConstraintCategoryProvider {
 	}	
 	
 	def private boolean isIncreasing (Forml0Variability variability) {
-		variability == Forml0VariabilityProvider::constant ||
-		variability == Forml0VariabilityProvider::fixed    ||
-		variability == Forml0VariabilityProvider::increasing
+		variability == constant ||
+		variability == fixed    ||
+		variability == increasing
 	}
 	
 	def private boolean isDecreasing (Forml0Variability variability) {
-		variability == Forml0VariabilityProvider::constant ||
-		variability == Forml0VariabilityProvider::fixed    ||
-		variability == Forml0VariabilityProvider::decreasing
+		variability == constant ||
+		variability == fixed    ||
+		variability == decreasing
+	}
+	
+	def private boolean fixedIntervals (Intervals i) {
+		if (i.interval !== null) return i.interval.fixedInterval
+		if (i.intervals !== null) {
+			var j = i.intervals
+			var int k
+			for (k=0; k<j.size; k++) if (!j.get(k).fixedValueOrInterval) return false
+			return true
+		}
+		false
+	}
+	
+	def private boolean fixedInterval (Interval i) {
+		switch i {
+			NumericInterval:	return (i.lb.expression.variabilityFor == constant || i.lb.expression.variabilityFor == fixed)
+									&& (i.ub.expression.variabilityFor == constant || i.ub.expression.variabilityFor == fixed)
+			default:			return true
+		}
+	}
+	
+	def private boolean fixedValueOrInterval (ValueOrInterval i) {
+		if (i.value    !== null) return i.value.variabilityFor == constant || i.value.variabilityFor == fixed
+		if (i.interval !== null) return i.interval.fixedInterval
+		false
 	}
 	
 }	

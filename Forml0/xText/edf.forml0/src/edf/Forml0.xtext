@@ -333,6 +333,11 @@ Domain:
 |	'{' intervals+=ValueOrInterval (',' intervals+=ValueOrInterval)* '}'
 ;
 
+Intervals:
+	interval=Interval
+|	'{' intervals+=ValueOrInterval (',' intervals+=ValueOrInterval)* '}'
+;
+
 ValueOrInterval:
 	value=VariableExpression
 |	interval=Interval
@@ -486,6 +491,7 @@ OrderingExpression returns Expression:
 	|	{LessOrEqualExpression   .left=current} '<=' right=AdditionExpression
 	|	{GreaterThanExpression   .left=current} '>'  right=AdditionExpression
 	|	{GreaterOrEqualExpression.left=current} '>=' right=AdditionExpression
+	|	{InIntervalExpression    .left=current} 'in' right=Intervals
 	)?
 ;
 

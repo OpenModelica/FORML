@@ -106,6 +106,8 @@ import edf.forml0.LeavesExpression
 import edf.forml0.IntegerInterval
 import edf.forml0.NumericInterval
 import edf.forml0.Interval
+import edf.forml0.InIntervalExpression
+import edf.forml0.Intervals
 
 /**
  * Generates code from your model files on save.
@@ -365,6 +367,10 @@ end'''
 		}
 	}
 	
+	def dispatch CharSequence forml0For (Intervals i) {
+		if (i.interval  !== null) return i.interval.forml0For 
+		if (i.intervals !== null) return '''«FOR j : i.intervals BEFORE '{' SEPARATOR ', ' AFTER '}'»«j.forml0For»«ENDFOR»'''
+	}
 	
 	
 	def dispatch CharSequence forml0For (Expression e) {
@@ -420,6 +426,7 @@ end'''
 			LessOrEqualExpression:		'(' + e.left.forml0For + ' <= '			+ e.right.forml0For + ')'
 			GreaterThanExpression:		'(' + e.left.forml0For + ' > '		  	+ e.right.forml0For + ')'
 			GreaterOrEqualExpression:	'(' + e.left.forml0For + ' >= '			+ e.right.forml0For + ')'
+			InIntervalExpression:		'(' + e.left.forml0For + ' in '			+ e.right.forml0For + ')'
 			AndExpression:				'(' + e.left.forml0For + ' and '		+ e.right.forml0For + ')'
 			WhileExpression:			'(' + e.left.forml0For + ' while '		+ e.right.forml0For + ')'
 			OrExpression:				'(' + e.left.forml0For + ' or '			+ e.right.forml0For + ')'

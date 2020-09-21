@@ -62,6 +62,7 @@ import edf.forml0.Tick
 import edf.forml0.ClockTime
 import edf.forml0.InPClockTime
 import edf.forml0.MyDerivative
+import edf.forml0.InIntervalExpression
 
 //=============================================================================
 //
@@ -137,6 +138,7 @@ class Forml0TypeProvider {
 			LessOrEqualExpression:		booleanType
 			GreaterThanExpression:		booleanType
 			GreaterOrEqualExpression:	booleanType
+			InIntervalExpression:		booleanType
 			AndExpression:				booleanType
 			WhileExpression:			eventType
 			OrExpression:				expr.left ?. typeFor ?: unknownType
